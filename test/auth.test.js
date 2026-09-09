@@ -12,7 +12,7 @@ process.env.SESSION_SECRET = 'test-secret-that-is-comfortably-long-enough';
 const {
   hashPassword, verifyPassword, passwordProblem, normaliseEmail,
   readCookie, setOAuthState, readOAuthState, sessionSecret,
-  randomToken, sha256Base64Url, originOf
+  randomToken, sha256Base64Url, originOf, configReport
 } = await import('../api/_auth.js');
 
 /* ------------------------------------------------------------- harness */
@@ -192,4 +192,56 @@ test('originOf follows the forwarded protocol and host', () => {
     originOf(fakeReq({ 'x-forwarded-proto': 'https,http', host: 'eq.example.com' })),
     'https://eq.example.com'
   );
+});
+
+/* ---------------------------------------------------------- diagnostics */
+
+test('configReport names what is missing, and never a value', () => {
+  const saved = {
+    DATABASE_URL: process.env.DATABASE_URL,
+    SESSION_SECRET: process.env.SESSION_SECRET,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET
+  };
+  const restore = () => {
+    for (const key of Object.keys(saved)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  };
+
+  try {
+    delete process.env.DATABASE_URL;
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    process.env.SESSION_SECRET = 'x'.repeat(40);
+
+    let report = configReport();
+    assert.equal(report.DATABASE_URL, 'missing');
+    assert.equal(report.SESSION_SECRET, 'ok');
+    assert.equal(report.GOOGLE_CLIENT_ID, 'missing');
+    assert.equal(report.ok, false);
+
+    // The trap this exists for: a secret that is present but too short is
+    // treated as absent everywhere else, and looks identical from outside.
+    process.env.SESSION_SECRET = 'short-one';
+    report = configReport();
+    assert.match(report.SESSION_SECRET, /^too_short \(9 chars, need 32\)$/);
+    assert.equal(sessionSecret(), null, 'and it still fails closed');
+
+    process.env.DATABASE_URL = 'postgresql://u:p@h/db';
+    process.env.SESSION_SECRET = 'y'.repeat(32);
+    process.env.GOOGLE_CLIENT_ID = 'id';
+    process.env.GOOGLE_CLIENT_SECRET = 'secret';
+    report = configReport();
+    assert.equal(report.ok, true, 'exactly 32 characters is enough');
+
+    // No value ever appears in the report -- only a verdict per variable.
+    const serialised = JSON.stringify(configReport());
+    for (const value of ['postgresql://u:p@h/db', 'y'.repeat(32), 'secret']) {
+      assert.ok(!serialised.includes(value), `report leaked ${value.slice(0, 12)}`);
+    }
+  } finally {
+    restore();
+  }
 });

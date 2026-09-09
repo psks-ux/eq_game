@@ -33,6 +33,29 @@ export function sessionSecret() {
   return s.length >= 32 ? s : null;
 }
 
+/**
+ * Which configuration is present, by name and never by value. Callers surface this
+ * only while something is broken, so a healthy deployment reveals nothing it did
+ * not already reveal through `providers`. It exists because "unconfigured" on its
+ * own does not say WHICH variable is wrong, and a secret that is merely too short
+ * looks identical from outside to one that was never set.
+ */
+export function configReport() {
+  const secret = process.env.SESSION_SECRET || '';
+  const id = process.env.GOOGLE_CLIENT_ID || '';
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+
+  const report = {
+    DATABASE_URL: process.env.DATABASE_URL ? 'ok' : 'missing',
+    SESSION_SECRET: !secret ? 'missing'
+      : secret.length < 32 ? `too_short (${secret.length} chars, need 32)` : 'ok',
+    GOOGLE_CLIENT_ID: id ? 'ok' : 'missing',
+    GOOGLE_CLIENT_SECRET: clientSecret ? 'ok' : 'missing'
+  };
+  report.ok = Object.keys(report).every((k) => k === 'ok' || report[k] === 'ok');
+  return report;
+}
+
 /* --------------------------------------------------------------- passwords */
 
 /** At least 10 characters. Length beats composition rules for real-world strength. */

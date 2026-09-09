@@ -1,0 +1,516 @@
+==============================================================================
+FLUID INTELLIGENCE ENGINE - PSYCHOMETRIC SIMULATION
+==============================================================================
+
+  run parameter              value
+  -------------------------  ------------------------------------------------------------------
+  mode                       FULL - mock item source plus real registry
+  sample scaling             full contract sizes
+  master seed                20240917
+  engine                     src/core/cat.js in every pass; only the item SOURCE is ever mocked
+  estimator                  Warm's WLE (src/core/irt.js)
+  operating point            minItems 18, maxItems 40, targetSE 0.30, 8 options
+  cut / interval             index 100, 90% interval
+  mock family metadata       registry FAMILIES metadata
+  mock bank b range          -1.60 to 5.60 across 8 families
+  mock guessing asymptote c  0.1062
+
+  Every number below is a deterministic function of the master seed. Responses are
+  generated from the 3PL using the parameters the system itself assigns to an item,
+  so this validates the estimator, the adaptive algorithm and the reach of the item
+  bank. It cannot validate the difficulty model against human data, because no such
+  data exists yet; section 1b is the closest available substitute.
+
+==============================================================================
+1. THETA RECOVERY
+==============================================================================
+
+MOCK ITEM SOURCE - 4000 examinees from N(0,1), plus 400 each at theta 2.5 / 3.5 / 4.5
+
+  true theta band     n    bias   RMSE  mean SE  items   rel.
+  ---------------  ----  ------  -----  -------  -----  -----
+  theta < -2.0       79  +0.201  0.429    0.362   31.6  0.848
+  -2.0 to -1.0      560  +0.060  0.268    0.260   19.2  0.932
+  -1.0 to  0.0     1367  -0.012  0.193    0.200   25.2  0.958
+   0.0 to  1.0     1352  +0.024  0.202    0.190   24.4  0.963
+   1.0 to  2.0      554  +0.021  0.258    0.234   18.0  0.945
+   2.0 to  3.0       82  +0.005  0.279    0.256   18.1  0.934
+   3.0 to  4.0        6  -0.108  0.226    0.280   18.7  0.922
+  theta >= 4.0        0       -      -        -      -      -
+  ---------------  ----  ------  -----  -------  -----  -----
+  all N(0,1)       4000  +0.019  0.226    0.214   23.1  0.952
+  core [-2, 2]     3833  +0.016  0.218    0.210   23.0  0.954
+  ---------------  ----  ------  -----  -------  -----  -----
+  spike theta 2.5   400  -0.005  0.282    0.261   18.1  0.931
+  spike theta 3.5   400  -0.017  0.291    0.283   18.9  0.920
+  spike theta 4.5   400  +0.001  0.333    0.289   20.9  0.916
+
+  bias = mean(theta_hat - theta_true). RMSE folds bias and noise together. rel. is
+  the marginal reliability implied by the SE. Bias at the extremes is the item bank
+  running out of items, not an estimator defect: once every remaining item is easier
+  (or harder) than the examinee, further responses stop carrying information.
+
+  Read the two edge bands with care. Below the bank floor and above the bank ceiling
+  the mean SE is OPTIMISTIC relative to the RMSE, because the standard error is
+  conditional on the model being right about the items that were administered and
+  says nothing about the items that could not be. Those bands are also where the
+  90% interval is widest, which is the part the user actually sees.
+
+1b. Misspecification stress test
+----------------------------------------
+
+  Responses are GENERATED from perturbed parameters (b shifted by N(0, 0.50), a
+  multiplied by exp(N(0, 0.20))) while the engine SCORES them with the design-time
+  priors. This is what happens if the difficulty model in calibration.js is wrong.
+
+MOCK ITEM SOURCE, perturbed truth
+
+  true theta band     n    bias   RMSE  mean SE  items   rel.
+  ---------------  ----  ------  -----  -------  -----  -----
+  theta < -2.0       31  +0.492  0.641    0.307   26.3  0.897
+  -2.0 to -1.0      186  +0.114  0.286    0.256   18.6  0.934
+  -1.0 to  0.0      532  +0.008  0.254    0.201   24.9  0.958
+   0.0 to  1.0      491  -0.011  0.237    0.190   24.1  0.963
+   1.0 to  2.0      225  -0.026  0.324    0.231   18.0  0.946
+   2.0 to  3.0       33  -0.123  0.317    0.252   18.2  0.936
+   3.0 to  4.0        2  +0.028  0.158    0.282   18.0  0.920
+  theta >= 4.0        0       -      -        -      -      -
+  ---------------  ----  ------  -----  -------  -----  -----
+  all N(0,1)       1500  +0.017  0.279    0.212   22.7  0.953
+  core [-2, 2]     1434  +0.010  0.265    0.209   22.8  0.955
+  ---------------  ----  ------  -----  -------  -----  -----
+  spike theta 2.5   150  -0.081  0.371    0.262   18.2  0.931
+  spike theta 3.5   150  -0.096  0.398    0.282   19.0  0.920
+  spike theta 4.5   150  -0.171  0.375    0.289   20.6  0.917
+
+==============================================================================
+2. TEST INFORMATION AND THE CEILING CLAIM
+==============================================================================
+
+REALISED ADAPTIVE-TEST INFORMATION - what a session actually collects
+  y: Fisher information of the administered test, evaluated at the true theta
+  100.0 |                                     
+        |                                     
+        |                                     
+        |                                     
+        |                                     
+        |                                     
+        |                                     
+        |                                     
+   50.0 |            #                        
+        |            #                        
+        |           ##:                       
+        |           ###                       
+        |          :###:                      
+        |        ::#######::                  
+        |     #:#################:::::::::::::
+    6.3 |  :##################################
+    0.0 ++---+---+---+---+---+---+---+---+---+
+         -3  -2  -1  0   1   2   3   4   5   6
+                      theta
+
+ITEM-BANK INFORMATION PROFILE - where the bank can measure at all
+  y: information carried by a representative 100 items of the bank
+   50.0 |                                     
+        |                                     
+        |                                     
+        |                                     
+        |             ::::::: :::::           
+   25.0 |           ###################:      
+        |         :######################:    
+        |        #########################:   
+        |      :############################  
+    5.0 |     :##############################:
+    0.0 ++---+---+---+---+---+---+---+---+---+
+         -3  -2  -1  0   1   2   3   4   5   6
+                      theta
+
+  theta  index  I_bank/100  I_test     SE  SEM_idx   rel.  items  at max
+  -----  -----  ----------  ------  -----  -------  -----  -----  ------
+  -3.00     55        0.08    0.73  1.170     17.6  0.000   35.2     63%
+  -2.75     59        0.20    2.03  0.702     10.5  0.507   36.1     75%
+  -2.50     63        0.49    3.89  0.507      7.6  0.743   34.3     56%
+  -2.25     66        1.14    8.38  0.345      5.2  0.881   33.9     50%
+  -2.00     70        2.42    8.47  0.344      5.2  0.882   22.7      0%
+  -1.75     74        4.61   13.14  0.276      4.1  0.924   22.9      0%
+  -1.50     78        7.81   12.48  0.283      4.2  0.920   19.1      0%
+  -1.25     81       11.62   14.35  0.264      4.0  0.930   18.1      0%
+  -1.00     85       15.42   17.07  0.242      3.6  0.941   18.1      0%
+  -0.75     89       18.99   17.69  0.238      3.6  0.943   19.6      0%
+  -0.50     93       22.37   22.71  0.210      3.1  0.956   22.3      6%
+  -0.25     96       25.27   40.07  0.158      2.4  0.975   32.8     50%
+   0.00    100       27.31   51.17  0.140      2.1  0.980   40.0    100%
+   0.25    104       28.47   36.42  0.166      2.5  0.973   28.0     31%
+   0.50    108       28.83   23.86  0.205      3.1  0.958   20.0      6%
+   0.75    111       28.70   20.60  0.220      3.3  0.951   18.0      0%
+   1.00    115       28.61   19.57  0.226      3.4  0.949   18.0      0%
+   1.25    119       28.58   18.18  0.235      3.5  0.945   18.0      0%
+   1.50    123       28.33   15.96  0.250      3.8  0.937   18.0      0%
+   1.75    126       27.84   15.48  0.254      3.8  0.935   18.0      0%
+   2.00    130       27.49   14.87  0.259      3.9  0.933   18.1      0%
+   2.25    134       27.68   14.76  0.260      3.9  0.932   18.1      0%
+   2.50    138       28.14   12.66  0.281      4.2  0.921   18.0      0%
+   2.75    141       28.29   12.59  0.282      4.2  0.921   18.2      0%
+   3.00    145       28.11   12.29  0.285      4.3  0.919   19.1      0%
+   3.25    149       27.82   11.99  0.289      4.3  0.917   18.1      0%
+   3.50    153       27.45   11.62  0.293      4.4  0.914   18.5      0%
+   3.75    156       27.14   11.78  0.291      4.4  0.915   19.1      0%
+   4.00    160       26.96   10.31  0.311      4.7  0.903   19.7      0%
+   4.25    164       26.46   11.93  0.290      4.3  0.916   20.0      0%
+   4.50    168       24.80   11.25  0.298      4.5  0.911   21.0      0%
+   4.75    171       21.73   10.84  0.304      4.6  0.908   21.8      0%
+   5.00    175       17.85   11.27  0.298      4.5  0.911   22.3      0%
+   5.25    179       13.89   11.16  0.299      4.5  0.910   22.6      0%
+   5.50    183       10.23   12.42  0.284      4.3  0.919   23.7      0%
+   5.75    186        7.01   10.70  0.306      4.6  0.907   25.1      0%
+   6.00    190        4.46   10.05  0.315      4.7  0.900   27.3      0%
+
+  ceiling metric                              value
+  ------------------------------------------  ---------------------------------------
+  bank information above theta 2 (index 130)  50.6%
+  bank information above theta 4 (index 160)  19.4%
+  realised test information above theta 2     34.0%
+  realised test information above theta 4     16.0%
+  SE at theta 2 (index 130)                   0.259  -> 90% band +/- 6.4 index points
+  SE at theta 4 (index 160)                   0.311  -> 90% band +/- 7.7 index points
+  highest b available in the bank             5.60
+  peak of the bank information profile        theta 0.50
+
+  I_bank is the information a representative 100-item slice of the bank carries at
+  each theta - the raw material. I_test is what one adaptive session actually
+  collects about someone who truly sits there, which is the number that matters.
+  The ceiling is real and finite: past theta 4 the bank runs short of hard items and
+  the interval widens. The app never shows a point estimate without that interval.
+
+==============================================================================
+3. ELITE SEPARATION
+==============================================================================
+
+MOCK ITEM SOURCE - 5200 examinees (population plus elite over-sample)
+
+  separation statistic                                      n   value
+  -----------------------------------------------------  ----  ------
+  AUC  theta >= 2  vs  theta < 2                         5200  0.9991
+  AUC  theta >= 4  vs  2 <= theta < 4                    1288  0.9920
+  AUC  theta >= 0  vs  theta < 0  (the elimination cut)  5200  0.9953
+  -----------------------------------------------------  ----  ------
+  Pearson r(reported index, true theta)                  5200  0.9902
+  r^2 - index variance explained by true theta           5200  0.9804
+  point-biserial r(elite indicator, index)               5200  0.8464
+  point-biserial r(apex indicator, index | theta >= 2)   1288  0.8118
+
+Tier assignment: true tier (from true theta) against reported tier (from the index)
+
+  true tier           n  exact  placed lower  placed higher
+  ---------------  ----  -----  ------------  -------------
+   -  eliminated   1951  95.6%          0.0%           4.4%
+   0  entry        1380  83.2%          7.7%           9.1%
+   1  strong        574  84.0%         11.0%           5.1%
+   2  advanced      489  90.4%          7.2%           2.5%
+   3  exceptional   406  92.1%          3.7%           4.2%
+   4  elite         400  95.5%          4.3%           0.3%
+  ---------------  ----  -----  ------------  -------------
+  ALL              5200  90.3%
+
+  exact tier agreement 90.3%, within one tier 100.0%.
+  Tiers are 15 index points wide and the SEM is around 4 to 5 points, so boundary
+  churn is arithmetically unavoidable. The product consequence is bounded because
+  adjacent tiers share most of their curriculum.
+
+  AUC is the probability that a randomly drawn member of the higher group scores
+  above a randomly drawn member of the lower group. The second row is the hard one:
+  it asks the test to rank the top of the distribution against itself, which is the
+  entire point of building a high-ceiling instrument.
+
+==============================================================================
+4. ITEM EXPOSURE AND CONTENT BALANCE
+==============================================================================
+
+MOCK ITEM SOURCE - 115431 administered items across 5200 sessions
+
+  family          items  share  mean b  sessions using it
+  --------------  -----  -----  ------  -----------------
+  mentalRotation  15631  13.5%    0.41              96.4%
+  oddOneOut       15576  13.5%    0.40              96.4%
+  analogy         14917  12.9%    0.52              96.4%
+  paperFolding    14883  12.9%    0.53              96.4%
+  constraintGrid  14679  12.7%    0.59              94.4%
+  matrix          13445  11.6%    0.37              94.4%
+  series          13324  11.5%    0.41              94.5%
+  progression     12976  11.2%    0.48              94.0%
+
+  content group  items  share  mean b
+  -------------  -----  -----  ------
+  induction      39745  34.4%    0.42
+  spatial        30514  26.4%    0.47
+  relational     30493  26.4%    0.46
+  constraint     14679  12.7%    0.59
+
+  content-balance constraint              worst session  limit  status
+  --------------------------------------  -------------  -----  ------
+  content-group share within one session          40.0%  40.0%  ok
+  family share within one session                 25.0%  25.0%  ok
+  sessions where a cap had to be relaxed           0.0%      -  none
+
+Histogram of administered item difficulty b
+
+         b range  items  share
+  --------------  -----  -----  --------------------------------------------
+  -3.00 .. -2.50      0   0.0%
+  -2.50 .. -2.00      0   0.0%
+  -2.00 .. -1.50    923   0.8%  #
+  -1.50 .. -1.00   6396   5.5%  #########
+  -1.00 .. -0.50  13154  11.4%  ##################
+   -0.50 .. 0.00  24929  21.6%  ##################################
+    0.00 .. 0.50  32700  28.3%  ############################################
+    0.50 .. 1.00  11370   9.9%  ###############
+    1.00 .. 1.50   6732   5.8%  #########
+    1.50 .. 2.00   4409   3.8%  ######
+    2.00 .. 2.50   3979   3.4%  #####
+    2.50 .. 3.00   3138   2.7%  ####
+    3.00 .. 3.50   2619   2.3%  ####
+    3.50 .. 4.00   1965   1.7%  ###
+    4.00 .. 4.50   1685   1.5%  ##
+    4.50 .. 5.00   1123   1.0%  ##
+    5.00 .. 5.50    286   0.2%
+    5.50 .. 6.00     23   0.0%
+
+  difficulty reach                                        value
+  ------------------------------------------------------  -----------------------
+  median administered b                                   0.17
+  90th percentile administered b                          2.40
+  99th percentile administered b                          4.60
+  maximum administered b                                  5.60
+  share of all administered items with b >= 3.0           6.67%
+  share with b >= 3.0 among examinees at true theta >= 3  45.6% over 806 sessions
+  spread of administered b (sd)                           1.29
+
+==============================================================================
+5. CUT ACCURACY AT INDEX 100
+==============================================================================
+
+MOCK ITEM SOURCE at the operating point - 4000 examinees from N(0,1)
+
+  classification against the index-100 cut                    n                            rate
+  -------------------------------------------------------  ----  ------------------------------
+  false ELIMINATION   true index >= 100, reported < 100    1994                           3.66%
+  false QUALIFICATION true index <  100, reported >= 100   2006                           5.33%
+  overall misclassification across the whole sample        4000                           4.50%
+  -------------------------------------------------------  ----  ------------------------------
+  false ELIMINATION,   true index >= 105                   1504                           0.00%
+  false QUALIFICATION, true index <= 95                    1476                           0.07%
+  CONSEQUENTIAL error rate, outside +/-5 index of the cut  2980  0.03%  [95% CI 0.01% .. 0.19%]
+
+  The raw rates are dominated by candidates sitting essentially ON the cut. At a true
+  index of 100.3 no instrument can be reliably right, and being wrong there is not a
+  wrong decision in any product sense - the candidate is at the boundary. The gated
+  number is the consequential rate, which excludes a +/-5 index indifference zone.
+  Both are printed. Neither is hidden.
+
+5b. Sensitivity to maxItems
+----------------------------------------
+
+  maxItems  mean used  mean SE  SEM idx  raw false-elim  raw false-qual  consequential
+  --------  ---------  -------  -------  --------------  --------------  -------------
+        12       12.0    0.299      4.5           5.24%          11.00%          1.85%
+        20       18.7    0.230      3.4           2.62%           8.85%          0.17%
+        28       20.8    0.221      3.3           4.19%           6.70%          0.17%
+      40 *       23.2    0.214      3.2           2.36%           5.02%          0.00%
+        60       26.3    0.209      3.1           1.57%           5.02%          0.00%
+
+  * operating point. minItems is capped at maxItems for the short settings, so the
+  12-item row also loses the "keep testing while the interval straddles 100" rule,
+  which is most of what the longer tests actually buy at the cut.
+
+==============================================================================
+6. REAL ITEM REGISTRY
+==============================================================================
+
+The same engine, now generating real items: 300 examinees through
+src/items/registry.js. This is the slow pass - real generation costs milliseconds
+per candidate item and a session asks for six per administered item - and it is
+what turns the numbers above into claims about THIS item bank rather than about a
+plausible one. Use --fast to skip it, or --real-n to shorten it.
+
+REAL REGISTRY - 210 population examinees plus 30 per elite spike
+
+  true theta band    n    bias   RMSE  mean SE  items   rel.
+  ---------------  ---  ------  -----  -------  -----  -----
+  theta < -2.0       6  +0.140  0.368    0.439   37.3  0.780
+  -2.0 to -1.0      28  +0.055  0.265    0.252   19.6  0.936
+  -1.0 to  0.0      66  -0.028  0.182    0.192   23.1  0.962
+   0.0 to  1.0      85  +0.018  0.211    0.176   22.1  0.968
+   1.0 to  2.0      21  -0.092  0.248    0.205   18.0  0.958
+   2.0 to  3.0       4  +0.015  0.166    0.231   18.0  0.947
+   3.0 to  4.0       0       -      -        -      -      -
+  theta >= 4.0       0       -      -        -      -      -
+  ---------------  ---  ------  -----  -------  -----  -----
+  all N(0,1)       210  +0.001  0.220    0.203   22.0  0.955
+  core [-2, 2]     200  -0.004  0.215    0.195   21.6  0.961
+  ---------------  ---  ------  -----  -------  -----  -----
+  spike theta 2.5   30  -0.071  0.208    0.240   18.2  0.942
+  spike theta 3.5   30  -0.148  0.343    0.265   18.6  0.929
+  spike theta 4.5   30  -0.042  0.283    0.283   21.2  0.920
+
+  1425 ms per examinee, 427.5 s for the pass.
+
+
+6b. Real-registry exposure
+----------------------------------------
+
+REAL REGISTRY - 6362 administered items across 300 sessions
+
+  family          items  share  mean b  sessions using it
+  --------------  -----  -----  ------  -----------------
+  analogy          1281  20.1%    0.58             100.0%
+  mentalRotation   1272  20.0%    0.48             100.0%
+  series            861  13.5%    0.56              94.3%
+  progression       801  12.6%    0.44              95.3%
+  paperFolding      693  10.9%    0.43              86.0%
+  matrix            646  10.2%    0.28              93.7%
+  oddOneOut         527   8.3%    0.03              78.0%
+  constraintGrid    281   4.4%    2.11              61.0%
+
+  content group  items  share  mean b
+  -------------  -----  -----  ------
+  induction       2308  36.3%    0.44
+  spatial         1965  30.9%    0.46
+  relational      1808  28.4%    0.42
+  constraint       281   4.4%    2.11
+
+  content-balance constraint              worst session  limit  status
+  --------------------------------------  -------------  -----  ------
+  content-group share within one session          40.0%  40.0%  ok
+  family share within one session                 25.0%  25.0%  ok
+  sessions where a cap had to be relaxed           0.0%      -  none
+
+Histogram of administered item difficulty b
+
+         b range  items  share
+  --------------  -----  -----  --------------------------------------------
+  -3.00 .. -2.50      0   0.0%
+  -2.50 .. -2.00      0   0.0%
+  -2.00 .. -1.50    134   2.1%  ###
+  -1.50 .. -1.00    412   6.5%  #########
+  -1.00 .. -0.50    577   9.1%  ############
+   -0.50 .. 0.00    965  15.2%  #####################
+    0.00 .. 0.50   2042  32.1%  ############################################
+    0.50 .. 1.00    666  10.5%  ##############
+    1.00 .. 1.50    362   5.7%  ########
+    1.50 .. 2.00    246   3.9%  #####
+    2.00 .. 2.50    321   5.0%  #######
+    2.50 .. 3.00    207   3.3%  ####
+    3.00 .. 3.50    168   2.6%  ####
+    3.50 .. 4.00    111   1.7%  ##
+    4.00 .. 4.50    100   1.6%  ##
+    4.50 .. 5.00     43   0.7%  #
+    5.00 .. 5.50      8   0.1%
+    5.50 .. 6.00      0   0.0%
+
+  difficulty reach                                        value
+  ------------------------------------------------------  ----------------------
+  median administered b                                   0.20
+  90th percentile administered b                          2.50
+  99th percentile administered b                          4.45
+  maximum administered b                                  5.45
+  share of all administered items with b >= 3.0           6.76%
+  share with b >= 3.0 among examinees at true theta >= 3  35.7% over 60 sessions
+  spread of administered b (sd)                           1.31
+
+
+6c. Real-registry separation
+----------------------------------------
+
+  separation statistic                                     n   value
+  -----------------------------------------------------  ---  ------
+  AUC  theta >= 2  vs  theta < 2                         300  1.0000
+  AUC  theta >= 4  vs  2 <= theta < 4                     94  0.9995
+  AUC  theta >= 0  vs  theta < 0  (the elimination cut)  300  0.9975
+  -----------------------------------------------------  ---  ------
+  Pearson r(reported index, true theta)                  300  0.9919
+  r^2 - index variance explained by true theta           300  0.9839
+  point-biserial r(elite indicator, index)               300  0.8652
+  point-biserial r(apex indicator, index | theta >= 2)    94  0.8482
+
+Tier assignment: true tier (from true theta) against reported tier (from the index)
+
+  true tier          n   exact  placed lower  placed higher
+  ---------------  ---  ------  ------------  -------------
+   -  eliminated    97   97.9%          0.0%           2.1%
+   0  entry         83   89.2%          6.0%           4.8%
+   1  strong        26   65.4%         30.8%           3.8%
+   2  advanced      34  100.0%          0.0%           0.0%
+   3  exceptional   30   86.7%         13.3%           0.0%
+   4  elite         30   93.3%          6.7%           0.0%
+  ---------------  ---  ------  ------------  -------------
+  ALL              300   91.3%
+
+  exact tier agreement 91.3%, within one tier 100.0%.
+  Tiers are 15 index points wide and the SEM is around 4 to 5 points, so boundary
+  churn is arithmetically unavoidable. The product consequence is bounded because
+  adjacent tiers share most of their curriculum.
+
+
+6d. Real-registry cut accuracy
+----------------------------------------
+
+REAL REGISTRY - 210 examinees from N(0,1)
+
+  classification against the index-100 cut                   n                            rate
+  -------------------------------------------------------  ---  ------------------------------
+  false ELIMINATION   true index >= 100, reported < 100    110                           2.73%
+  false QUALIFICATION true index <  100, reported >= 100   100                           3.00%
+  overall misclassification across the whole sample        210                           2.86%
+  -------------------------------------------------------  ---  ------------------------------
+  false ELIMINATION,   true index >= 105                    87                           0.00%
+  false QUALIFICATION, true index <= 95                     78                           0.00%
+  CONSEQUENTIAL error rate, outside +/-5 index of the cut  165  0.00%  [95% CI 0.00% .. 2.28%]
+
+  The raw rates are dominated by candidates sitting essentially ON the cut. At a true
+  index of 100.3 no instrument can be reliably right, and being wrong there is not a
+  wrong decision in any product sense - the candidate is at the boundary. The gated
+  number is the consequential rate, which excludes a +/-5 index indifference zone.
+  Both are printed. Neither is hidden.
+
+  A few hundred examinees: read the confidence interval, not the point estimate.
+  The mock pass is the one with the sample size to gate on.
+
+  finishedReason  sessions  share
+  --------------  --------  -----
+  precision            246  82.0%
+  maxItems              29   9.7%
+  decisive              25   8.3%
+
+==============================================================================
+VERDICT
+==============================================================================
+
+  gate                                                        observed       limit  result
+  ----------------------------------------------------------  --------  ----------  ------
+  theta RMSE, core range [-2, 2], mock source                    0.218       0.400  PASS
+  consequential error rate at the index-100 cut, mock source     0.03%       5.00%  PASS
+  theta RMSE, core range, difficulty model misspecified          0.265       0.550  PASS
+  real-registry pass completed without errors                    clean  0 failures  PASS
+  theta RMSE, core range, REAL registry                          0.215       0.400  PASS
+
+  headline figure (mock source, not gated)     value
+  ------------------------------------------  ------
+  AUC, elite (theta >= 2) against the rest    0.9991
+  AUC, apex (theta >= 4) within the elite     0.9920
+  r(reported index, true theta)               0.9902
+  exact tier agreement                         90.3%
+  bank information above theta 4 (index 160)   19.4%
+  SE at theta 4 (index 160)                    0.311
+  administered items with b >= 3               6.67%
+  worst within-session content-group share     40.0%
+
+  timing              seconds
+  ------------------  -------
+  main mock cohort       65.2
+  information grid        8.3
+  maxItems sweep         49.8
+  real-registry pass    427.5
+  total                 574.8
+
+RESULT: PASS - all gates met.
+

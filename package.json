@@ -1,0 +1,13 @@
+{
+  "name": "fluid-intelligence-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Culture-fair adaptive fluid-intelligence assessment and training",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "sim": "node sim/simulate.js",
+    "build": "node tools/build-single.mjs",
+    "serve": "node tools/serve.mjs"
+  }
+}

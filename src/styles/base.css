@@ -1,0 +1,627 @@
+/* base.css — design tokens (contract 21), reset, typography and page layout.
+   Dark-first on :root; light under prefers-color-scheme; [data-theme] always wins.
+   Contrast of --stim on --bg-elev is >= 7:1 in every theme (verified numerically). */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0a0c0e;
+  --bg-elev: #14181c;
+  --bg-elev-2: #1c2126;
+  --line: #2a3138;
+  /* --line-strong draws the border of .btn and .opt, i.e. it identifies a control:
+     WCAG 1.4.11 wants >= 3:1 against every surface those sit on. This clears it on
+     --bg (4.04), --bg-elev (3.68) and --bg-elev-2 (3.35). */
+  --line-strong: #67737f;
+
+  --fg: #e9eef3;
+  --fg-dim: #a9b4bf;
+  --fg-mute: #78838e;
+
+  --accent: #63b3f2;
+  --accent-dim: #2f6f9c;
+  --good: #4ecb92;
+  --warn: #e5ad45;
+  --bad: #f4796b;
+
+  /* stimulus ink — 16.7:1 on --bg-elev */
+  --stim: #f5f8fb;
+  --stim-2: #b9c6d2;
+
+  /* curriculum band colours (scale.js BANDS reference these by name) */
+  --band-entry: #8fb0cc;
+  --band-strong: #63b3f2;
+  --band-advanced: #4ecb92;
+  --band-exceptional: #d9c264;
+  --band-elite: #ef9354;
+  --band-apex: #dd93d8;
+
+  /* radii */
+  --r-sm: 6px;
+  --r-md: 11px;
+  --r-lg: 20px;
+
+  /* spacing scale */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 72px;
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', 'Liberation Sans', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* derived, non-contract helpers */
+  --col: 860px;
+  --ui-stroke: 2;
+  --stim-stroke: 2.4;
+  --focus: var(--accent);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.55), 0 20px 56px rgba(0, 0, 0, 0.5);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --band: var(--accent);
+}
+
+/* aliases: BANDS.color may be addressed positionally */
+:root {
+  --band-0: var(--band-entry);
+  --band-1: var(--band-strong);
+  --band-2: var(--band-advanced);
+  --band-3: var(--band-exceptional);
+  --band-4: var(--band-elite);
+  --band-5: var(--band-apex);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+
+    --bg: #e9edf1;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f4f6f9;
+    --line: #d3dae1;
+    --line-strong: #767f8d;
+
+    --fg: #0e141a;
+    --fg-dim: #44515e;
+    --fg-mute: #5a6570;
+
+    --accent: #0a63bd;
+    --accent-dim: #8ab8e8;
+    --good: #0d7a4f;
+    --warn: #8a5a00;
+    --bad: #c02a1c;
+
+    /* 19.1:1 on --bg-elev */
+    --stim: #0a1016;
+    --stim-2: #33414d;
+
+    --band-entry: #4a6f8f;
+    --band-strong: #0a63bd;
+    --band-advanced: #0d7a4f;
+    --band-exceptional: #75620f;
+    --band-elite: #a2531c;
+    --band-apex: #8c3d86;
+
+    --shadow: 0 1px 2px rgba(16, 24, 32, 0.1), 0 8px 24px rgba(16, 24, 32, 0.09);
+    --shadow-lift: 0 2px 6px rgba(16, 24, 32, 0.14), 0 20px 48px rgba(16, 24, 32, 0.16);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #e9edf1;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f4f6f9;
+  --line: #d3dae1;
+  --line-strong: #767f8d;
+
+  --fg: #0e141a;
+  --fg-dim: #44515e;
+  --fg-mute: #5a6570;
+
+  --accent: #0a63bd;
+  --accent-dim: #8ab8e8;
+  --good: #0d7a4f;
+  --warn: #8a5a00;
+  --bad: #c02a1c;
+
+  --stim: #0a1016;
+  --stim-2: #33414d;
+
+  --band-entry: #4a6f8f;
+  --band-strong: #0a63bd;
+  --band-advanced: #0d7a4f;
+  --band-exceptional: #75620f;
+  --band-elite: #a2531c;
+  --band-apex: #8c3d86;
+
+  --shadow: 0 1px 2px rgba(16, 24, 32, 0.1), 0 8px 24px rgba(16, 24, 32, 0.09);
+  --shadow-lift: 0 2px 6px rgba(16, 24, 32, 0.14), 0 20px 48px rgba(16, 24, 32, 0.16);
+}
+
+/* --------------------------------------------------------- high contrast */
+
+body.high-contrast {
+  --ui-stroke: 3.2;
+  --stim-stroke: 3.6;
+
+  --bg: #000000;
+  --bg-elev: #050708;
+  --bg-elev-2: #0d1114;
+  --line: #6d7883;
+  --line-strong: #9aa5b0;
+  --fg: #ffffff;
+  --fg-dim: #e2e8ee;
+  --fg-mute: #c3ccd5;
+  --accent: #8ecbff;
+  --accent-dim: #4b90c8;
+  --good: #79e3b1;
+  --warn: #ffca63;
+  --bad: #ff9a8d;
+  --stim: #ffffff;
+  --stim-2: #e6edf4;
+
+  --band-entry: #c9dbea;
+  --band-strong: #8ecbff;
+  --band-advanced: #79e3b1;
+  --band-exceptional: #ffca63;
+  --band-elite: #ffab77;
+  --band-apex: #f0aeea;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) body.high-contrast {
+    --bg: #ffffff;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f2f4f7;
+    --line: #4a545e;
+    --line-strong: #1b2229;
+    --fg: #000000;
+    --fg-dim: #1d252c;
+    --fg-mute: #39424b;
+    --accent: #00448f;
+    --accent-dim: #5f93cc;
+    --good: #005c37;
+    --warn: #6b4400;
+    --bad: #9c1508;
+    --stim: #000000;
+    --stim-2: #12191f;
+
+    --band-entry: #29455c;
+    --band-strong: #00448f;
+    --band-advanced: #005c37;
+    --band-exceptional: #52440a;
+    --band-elite: #7a3c11;
+    --band-apex: #6b2b66;
+  }
+}
+
+:root[data-theme='light'] body.high-contrast {
+  --bg: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f2f4f7;
+  --line: #4a545e;
+  --line-strong: #1b2229;
+  --fg: #000000;
+  --fg-dim: #1d252c;
+  --fg-mute: #39424b;
+  --accent: #00448f;
+  --accent-dim: #5f93cc;
+  --good: #005c37;
+  --warn: #6b4400;
+  --bad: #9c1508;
+  --stim: #000000;
+  --stim-2: #12191f;
+
+  --band-entry: #29455c;
+  --band-strong: #00448f;
+  --band-advanced: #005c37;
+  --band-exceptional: #52440a;
+  --band-elite: #7a3c11;
+  --band-apex: #6b2b66;
+}
+
+/* thicker chrome strokes; item ink weight is never overridden because a rule
+   may be *about* line weight. */
+body.high-contrast .icon svg,
+body.high-contrast .chart svg {
+  stroke-width: var(--ui-stroke);
+}
+
+body.high-contrast .card,
+body.high-contrast .panel,
+body.high-contrast .btn,
+body.high-contrast .opt,
+body.high-contrast .stage {
+  border-width: 2px;
+}
+
+/* ----------------------------------------------------------------- reset */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--sp-5) 0;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ------------------------------------------------------------ typography */
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 var(--sp-3);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+
+h1 {
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.05rem);
+}
+
+h2 {
+  font-size: clamp(1.2rem, 1.05rem + 0.8vw, 1.45rem);
+}
+
+h3 {
+  font-size: 1.08rem;
+}
+
+h4 {
+  font-size: 0.98rem;
+  color: var(--fg-dim);
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 var(--sp-4);
+  color: var(--fg-dim);
+  max-width: 62ch;
+}
+
+small,
+.small {
+  font-size: 0.86rem;
+  color: var(--fg-mute);
+}
+
+.mono,
+code,
+kbd {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+ul,
+ol {
+  margin: 0 0 var(--sp-4);
+  padding-left: var(--sp-5);
+  color: var(--fg-dim);
+}
+
+li + li {
+  margin-top: var(--sp-2);
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.numeral {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Chrome labels are optional affordances; nothing functional depends on them. */
+body.labels-off .label-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.app-root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  width: 100%;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-5) var(--sp-8);
+  flex: 1 1 auto;
+  display: block;
+}
+
+@media (max-width: 560px) {
+  .screen {
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+}
+
+.screen > * + * {
+  margin-top: var(--sp-5);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.row-end {
+  justify-content: flex-end;
+}
+
+.row-between {
+  justify-content: space-between;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.center {
+  text-align: center;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+
+@media (max-width: 620px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------- topbar */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: var(--sp-2) var(--sp-4);
+  min-height: 56px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-wrap .topbar {
+  border-bottom: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
+.topbar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--fg);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ----------------------------------------------------------------- stage */
+
+/* The stimulus stage: item ink is --stim on --bg-elev, always. */
+.stage {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  color: var(--stim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: inline-size;
+}
+
+@media (max-width: 420px) {
+  .stage {
+    padding: var(--sp-3);
+    border-radius: var(--r-md);
+  }
+}
+
+.stage svg,
+.stimulus svg,
+.opt svg,
+.demo svg {
+  width: 100%;
+  height: auto;
+  max-height: min(58vh, 520px);
+  display: block;
+}
+
+.stimulus {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  color: var(--stim);
+}
+
+.opt svg {
+  max-height: none;
+}
+
+/* keeps a phone at 360px readable: the stage never forces overflow */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* ----------------------------------------------------------- focus rings */
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+body.high-contrast :focus-visible {
+  outline-width: 4px;
+}
+
+/* --------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* --------------------------------------------------------------- print */
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .topbar,
+  .btn {
+    display: none;
+  }
+}

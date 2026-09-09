@@ -1,0 +1,1006 @@
+/* components.css — the component library from contract 20 (ui/components.js) plus
+   icon chrome. Every interactive control keeps a >= 44px touch target and a visible
+   focus ring; state is never carried by colour alone. */
+
+/* ----------------------------------------------------------------- icons */
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.icon svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--ui-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
+.icon svg .solid-stroke {
+  fill: currentColor;
+}
+
+.icon svg .thin {
+  stroke-width: calc(var(--ui-stroke) * 0.75);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.btn {
+  --btn-bg: var(--bg-elev-2);
+  --btn-fg: var(--fg);
+  --btn-line: var(--line-strong);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 46px;
+  min-width: 46px;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border: 1px solid var(--btn-line);
+  border-radius: var(--r-md);
+  font-size: 0.97rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--btn-bg) 82%, var(--fg));
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  --btn-bg: var(--accent);
+  --btn-fg: var(--bg);
+  --btn-line: var(--accent);
+  font-weight: 650;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--fg));
+}
+
+.btn--ghost {
+  --btn-bg: transparent;
+  --btn-line: var(--line-strong);
+}
+
+.btn--quiet {
+  --btn-bg: transparent;
+  --btn-line: transparent;
+  --btn-fg: var(--fg-dim);
+}
+
+.btn--quiet:hover:not(:disabled) {
+  --btn-fg: var(--fg);
+  background: var(--bg-elev-2);
+}
+
+.btn--danger {
+  --btn-bg: transparent;
+  --btn-fg: var(--bad);
+  --btn-line: var(--bad);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+}
+
+.btn--icon {
+  padding: var(--sp-2);
+  width: 46px;
+  border-radius: var(--r-md);
+}
+
+.btn--lg {
+  min-height: 58px;
+  padding: var(--sp-3) var(--sp-6);
+  font-size: 1.05rem;
+  border-radius: var(--r-lg);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--on {
+  --btn-line: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.btn__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.btn__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.labels-off .btn__label.label-text {
+  display: none;
+}
+
+body.labels-off .btn:has(.btn__icon) {
+  padding-inline: var(--sp-3);
+}
+
+/* ----------------------------------------------------------------- cards */
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: block;
+}
+
+.card--flat {
+  background: transparent;
+  border-color: var(--line);
+}
+
+.card--elev {
+  background: var(--bg-elev-2);
+  box-shadow: var(--shadow);
+}
+
+.card--accent {
+  border-color: var(--accent-dim);
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.card__title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.card__body > * + * {
+  margin-top: var(--sp-3);
+}
+
+.card__body > p:last-child {
+  margin-bottom: 0;
+}
+
+.card__actions {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+
+@media (max-width: 420px) {
+  .card {
+    padding: var(--sp-4);
+  }
+}
+
+/* --------------------------------------------------------- progress bar */
+
+.progress {
+  display: block;
+  width: 100%;
+}
+
+.progress__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  font-size: 0.86rem;
+  color: var(--fg-mute);
+}
+
+.progress__track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.progress__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width var(--dur-3) var(--ease);
+}
+
+.progress--good .progress__fill {
+  background: var(--good);
+}
+
+.progress--warn .progress__fill {
+  background: var(--warn);
+}
+
+.progress--bad .progress__fill {
+  background: var(--bad);
+}
+
+.progress--steps .progress__track {
+  height: 8px;
+}
+
+/* ---------------------------------------------------------------- meter */
+
+.meter {
+  display: block;
+  width: 100%;
+}
+
+.meter__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  font-size: 0.86rem;
+  color: var(--fg-mute);
+}
+
+.meter__track {
+  position: relative;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    var(--accent)
+  );
+  transition: width var(--dur-3) var(--ease);
+}
+
+.meter__needle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  left: 0%;
+  background: var(--fg);
+  transform: translateX(-1.5px);
+  transition: left var(--dur-3) var(--ease);
+}
+
+.meter__ticks {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.meter__tick {
+  width: 1px;
+  background: var(--line-strong);
+  opacity: 0.7;
+}
+
+/* ---------------------------------------------------------- option grid */
+
+.optgrid {
+  --cols: 4;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--sp-3);
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .optgrid {
+    grid-template-columns: repeat(min(var(--cols), 2), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  .optgrid {
+    gap: var(--sp-2);
+  }
+}
+
+.opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  padding: var(--sp-3);
+  background: var(--bg-elev);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--stim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease),
+    transform var(--dur-2) var(--ease), opacity var(--dur-2) var(--ease);
+}
+
+.opt:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--bg-elev-2);
+}
+
+.opt__svg {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.opt__svg svg {
+  width: 100%;
+  height: auto;
+}
+
+/* corner notch: an extra, colour-independent state carrier */
+.opt::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 0;
+  height: 0;
+  border-top: 0 solid var(--accent);
+  border-left: 0 solid transparent;
+  transition: border-width var(--dur-2) var(--ease);
+}
+
+.opt__mark {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: none;
+  color: var(--fg);
+  pointer-events: none;
+}
+
+.opt.is-selected {
+  border-color: var(--accent);
+  border-width: 3px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
+}
+
+.opt.is-selected::before {
+  border-top-width: 16px;
+  border-left-width: 16px;
+  border-top-color: var(--accent);
+}
+
+.opt.is-correct {
+  border-color: var(--good);
+  border-width: 4px;
+  background: color-mix(in srgb, var(--good) 12%, var(--bg-elev));
+}
+
+.opt.is-correct::before {
+  border-top-width: 20px;
+  border-left-width: 20px;
+  border-top-color: var(--good);
+}
+
+.opt.is-correct .opt__mark {
+  display: block;
+  color: var(--good);
+}
+
+.opt.is-incorrect {
+  border-color: var(--bad);
+  border-width: 3px;
+  border-style: dashed;
+  opacity: 0.62;
+  transform: scale(0.94);
+}
+
+.opt.is-incorrect::before {
+  border-top-width: 0;
+  border-left-width: 0;
+}
+
+.opt.is-incorrect .opt__mark {
+  display: block;
+  color: var(--bad);
+}
+
+.opt.is-muted {
+  opacity: 0.4;
+}
+
+.opt:disabled {
+  cursor: default;
+}
+
+.opt.is-locked {
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.dialog-overlay[hidden] {
+  display: none !important;
+}
+
+.dialog {
+  width: min(560px, 100%);
+  max-height: min(86vh, 760px);
+  overflow: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lift);
+  padding: var(--sp-5);
+  animation: dialog-in var(--dur-2) var(--ease);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dialog__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.dialog__title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dialog__close {
+  margin-left: auto;
+}
+
+.dialog__body > * + * {
+  margin-top: var(--sp-3);
+}
+
+.dialog__actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: var(--sp-5);
+}
+
+/* ---------------------------------------------------------------- charts */
+
+.chart {
+  display: block;
+  width: 100%;
+  color: var(--fg);
+}
+
+.chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart .c-axis {
+  stroke: var(--line-strong);
+  fill: none;
+  stroke-width: calc(var(--ui-stroke) * 0.75);
+}
+
+.chart .c-grid {
+  stroke: var(--line);
+  fill: none;
+  stroke-width: 1;
+}
+
+.chart .c-tick {
+  stroke: var(--line-strong);
+  stroke-width: calc(var(--ui-stroke) * 0.7);
+}
+
+.chart .c-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: calc(var(--ui-stroke) * 1.1);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .c-line-2 {
+  fill: none;
+  stroke: var(--fg-mute);
+  stroke-width: calc(var(--ui-stroke) * 0.9);
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+}
+
+.chart .c-area {
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
+  stroke: none;
+}
+
+.chart .c-pop {
+  fill: color-mix(in srgb, var(--fg) 12%, transparent);
+  stroke: var(--line-strong);
+  stroke-width: calc(var(--ui-stroke) * 0.7);
+}
+
+.chart .c-dot {
+  fill: var(--accent);
+  stroke: var(--bg-elev);
+  stroke-width: 1.5;
+}
+
+/* the CI band is the honesty affordance: it must read louder than the point */
+.chart .c-ci {
+  fill: color-mix(in srgb, var(--accent) 30%, transparent);
+  stroke: none;
+}
+
+.chart .c-ci-hatch {
+  stroke: var(--accent);
+  stroke-width: 1.25;
+  opacity: 0.55;
+}
+
+.chart .c-ci-edge {
+  stroke: var(--accent);
+  stroke-width: calc(var(--ui-stroke) * 1.2);
+  stroke-linecap: round;
+}
+
+.chart .c-ci-bar {
+  stroke: var(--accent);
+  stroke-width: calc(var(--ui-stroke) * 1.6);
+  stroke-linecap: butt;
+  fill: none;
+}
+
+.chart .c-point {
+  stroke: var(--fg);
+  stroke-width: calc(var(--ui-stroke) * 1.4);
+  stroke-linecap: round;
+}
+
+.chart .c-point-dot {
+  fill: var(--fg);
+  stroke: var(--bg-elev);
+  stroke-width: 2;
+}
+
+.chart .c-cut {
+  stroke: var(--bad);
+  stroke-width: calc(var(--ui-stroke) * 1.1);
+  stroke-dasharray: 6 5;
+  fill: none;
+}
+
+.chart .c-cut-zone {
+  fill: color-mix(in srgb, var(--bad) 9%, transparent);
+  stroke: none;
+}
+
+.chart .c-radar-grid {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart .c-radar-axis {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.chart .c-radar-area {
+  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  stroke: var(--accent);
+  stroke-width: calc(var(--ui-stroke) * 1.1);
+  stroke-linejoin: round;
+}
+
+.chart .c-radar-node {
+  fill: var(--accent);
+  stroke: var(--bg-elev);
+  stroke-width: 1.5;
+}
+
+.chart .c-axis-glyph {
+  fill: none;
+  stroke: var(--fg-mute);
+  stroke-width: calc(var(--ui-stroke) * 0.8);
+}
+
+.chart .c-peak {
+  stroke: var(--good);
+  stroke-width: calc(var(--ui-stroke) * 1.1);
+  stroke-dasharray: 4 4;
+  fill: none;
+}
+
+.chart--sparkline {
+  display: inline-block;
+  width: auto;
+  line-height: 0;
+}
+
+.chart--sparkline svg {
+  width: auto;
+}
+
+.chart--sparkline .c-line {
+  stroke-width: calc(var(--ui-stroke) * 0.9);
+}
+
+.chart--sparkline .c-dot {
+  fill: var(--fg);
+}
+
+.chart--bell,
+.chart--info,
+.chart--radar {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+}
+
+/* --------------------------------------------------- touch-target safety */
+
+/* A label-free interface must be comfortable to hit. Where a control is sized by
+   an inline style we cannot override (screens set their own switch geometry), the
+   hit area is extended with a transparent overlay instead of resizing the visual. */
+[role='switch'],
+[role='checkbox'] {
+  position: relative;
+}
+
+[role='switch']::after,
+[role='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------- misc chrome bits */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-3);
+  min-height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev-2);
+  color: var(--fg-dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge--band {
+  border-color: var(--band);
+  color: var(--band);
+}
+
+.badge--good {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.badge--bad {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: var(--sp-4) 0;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--sp-5);
+  transform: translateX(-50%);
+  z-index: 120;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  max-width: min(92vw, 480px);
+}
+
+/* ------------------------------------------------------------ demo player */
+
+.demo {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  color: var(--stim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: inline-size;
+}
+
+.demo svg {
+  width: 100%;
+  height: auto;
+  max-height: 46vh;
+}
+
+.demo--inline {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* wordless demonstration chrome (ui/demos.js) — theme- and contrast-aware */
+
+.demo-svg .d-frame {
+  fill: var(--bg-elev-2);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.demo-svg .d-frame--plain {
+  fill: var(--bg-elev-2);
+  stroke: var(--line);
+}
+
+.demo-svg .d-frame--blank {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2.6;
+  stroke-dasharray: 8 7;
+}
+
+.demo-svg .d-frame--focus {
+  fill: var(--bg-elev-2);
+  stroke: var(--accent);
+  stroke-width: 3.4;
+}
+
+.demo-svg .d-frame--good {
+  fill: color-mix(in srgb, var(--good) 14%, var(--bg-elev-2));
+  stroke: var(--good);
+  stroke-width: 4.6;
+}
+
+.demo-svg .d-frame--bad {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 3;
+  stroke-dasharray: 7 6;
+}
+
+.demo-svg .d-frame--lit {
+  fill: color-mix(in srgb, var(--accent) 40%, var(--bg-elev-2));
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.demo-svg .d-frame--ghost {
+  fill: none;
+  stroke: var(--line);
+  stroke-dasharray: 3 5;
+}
+
+.demo-svg .d-frame--hidden {
+  fill: none;
+  stroke: none;
+}
+
+.demo-svg .d-dim {
+  opacity: 0.34;
+}
+
+.demo-svg .d-ghost-layer {
+  opacity: 0.3;
+}
+
+.demo-svg .d-mark-good {
+  fill: var(--good);
+  stroke: none;
+}
+
+.demo-svg .d-mark-bad {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 3;
+}
+
+.demo-svg .d-band {
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
+  stroke: none;
+}
+
+.demo-svg .d-link {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.demo-svg .d-link--bad {
+  stroke: var(--bad);
+  stroke-dasharray: 6 5;
+}
+
+.demo-svg .d-rail {
+  stroke: var(--line-strong);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.demo-svg .d-tick {
+  stroke: var(--line-strong);
+  stroke-width: 2;
+}
+
+.demo-svg .d-node {
+  fill: var(--line-strong);
+  stroke: none;
+}
+
+.demo-svg .d-trail {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* matches items/folding.js: a faintly filled sheet outline with solid punch dots */
+.demo-svg .d-sheet {
+  fill: color-mix(in srgb, var(--stim) 9%, transparent);
+  stroke: var(--stim);
+  stroke-width: 2.4;
+}
+
+.demo-svg .d-sheet-ghost {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 6;
+}
+
+.demo-svg .d-hole {
+  fill: var(--stim);
+  stroke: none;
+}
+
+.demo-svg .d-fold {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.6;
+  stroke-dasharray: 7 6;
+}
+
+.demo-svg .d-fold-solid {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.demo-svg .d-orbit {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 7;
+}
+
+.demo-svg .d-timer-track {
+  fill: var(--bg-elev-2);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.demo-svg .d-timer-fill {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.demo-svg .d-fallback {
+  fill: none;
+  stroke: var(--stim);
+  stroke-width: 2.4;
+}
+
+body.high-contrast .demo-svg .d-frame {
+  stroke-width: 2.4;
+}
+
+body.high-contrast .demo-svg .d-frame--focus {
+  stroke-width: 4.4;
+}
+
+body.high-contrast .demo-svg .d-frame--good {
+  stroke-width: 5.6;
+}

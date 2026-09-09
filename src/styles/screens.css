@@ -1,0 +1,732 @@
+/* screens.css — layout for the nine screens (ui/screens/*.js). Deliberately
+   structure-first: generic element rules inside .screen keep any reasonable markup
+   looking like one instrument, with named hooks for the common blocks. */
+
+/* --------------------------------------------------------------- generic */
+
+.screen > header,
+.screen-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.screen > header h1,
+.screen-head h1 {
+  margin-bottom: var(--sp-1);
+}
+
+.screen > section + section {
+  margin-top: var(--sp-5);
+}
+
+.screen section > * + * {
+  margin-top: var(--sp-4);
+}
+
+.lede {
+  color: var(--fg-dim);
+  font-size: 1.02rem;
+  max-width: 58ch;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--fg-mute);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--sp-4);
+}
+
+.tile {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  min-height: 56px;
+}
+
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.kv:last-child {
+  border-bottom: 0;
+}
+
+.kv__k {
+  color: var(--fg-mute);
+  font-size: 0.9rem;
+}
+
+.kv__v {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-4);
+}
+
+.stat {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+
+.stat__value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2rem);
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--fg);
+}
+
+.stat__label {
+  margin-top: var(--sp-1);
+  font-size: 0.82rem;
+  color: var(--fg-mute);
+}
+
+/* ------------------------------------------------------------------ home */
+
+.screen--home .hero,
+.screen-home .hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  text-align: center;
+  padding: var(--sp-6) 0 var(--sp-4);
+}
+
+.hero__mark {
+  width: min(220px, 56vw);
+  color: var(--stim);
+}
+
+.hero__mark svg {
+  width: 100%;
+  height: auto;
+}
+
+.hero .btn--lg {
+  min-width: min(320px, 86vw);
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  justify-content: center;
+}
+
+.status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------ test */
+
+.screen--test,
+.screen--drill,
+.screen-test,
+.screen-drill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.test-head,
+.drill-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 48px;
+}
+
+.test-head .progress,
+.drill-head .progress {
+  flex: 1 1 220px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Host element only -- it holds the .optgrid produced by components.optionGrid().
+   .optgrid (components.css) already owns the column count via --cols and its own
+   breakpoints. Making this a grid as well nested one grid inside a single cell of
+   another, so every option tile collapsed to a quarter of its intended width and
+   the 100x100 stimulus SVGs inside them shrank to ~10px. */
+.options {
+  display: block;
+}
+
+.trial-timer {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.trial-timer__fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.stream-slot {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- result */
+
+.index-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--sp-3);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.index-readout__value {
+  font-size: clamp(3.2rem, 2rem + 9vw, 5.4rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--band, var(--fg));
+}
+
+.index-readout__ci {
+  font-size: clamp(0.95rem, 0.8rem + 0.7vw, 1.15rem);
+  color: var(--fg-dim);
+}
+
+.band-name {
+  text-align: center;
+  color: var(--band, var(--accent));
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.86rem;
+}
+
+.honesty-note {
+  border-left: 3px solid var(--accent);
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-4);
+  color: var(--fg-dim);
+  max-width: 62ch;
+}
+
+.factor-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+
+.factor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ------------------------------------------------------------ eliminated */
+
+.screen--eliminated,
+.screen-eliminated {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-5);
+}
+
+.screen--eliminated .gate-mark,
+.screen-eliminated .gate-mark {
+  width: min(180px, 46vw);
+  color: var(--bad);
+}
+
+.screen--eliminated .card,
+.screen-eliminated .card {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  text-align: left;
+  width: 100%;
+}
+
+/* ----------------------------------------------------------------- train */
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--sp-3);
+}
+
+@media (max-width: 380px) {
+  .level-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.level-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 118px;
+  padding: var(--sp-4);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+.level-card:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+.level-card.is-locked,
+.level-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.level-card.is-current {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.level-card__factor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 0.78rem;
+  color: var(--fg-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.level-card__mark {
+  width: 44px;
+  height: 44px;
+  color: var(--stim);
+}
+
+.tier-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.tier-head::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
+}
+
+.stars {
+  display: inline-flex;
+  gap: 3px;
+  color: var(--fg-mute);
+}
+
+.star.is-earned {
+  color: var(--band-exceptional);
+}
+
+/* ----------------------------------------------------------------- drill */
+
+.drill-stage {
+  min-height: min(52vh, 460px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.span-grid {
+  display: grid;
+  gap: var(--sp-2);
+  width: min(420px, 92vw);
+  margin: 0 auto;
+}
+
+.span-cell {
+  aspect-ratio: 1 / 1;
+  min-height: 56px;
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev);
+  cursor: pointer;
+}
+
+.span-cell.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.span-cell.is-picked {
+  border-color: var(--fg);
+  border-width: 3px;
+}
+
+/* -------------------------------------------------------------- progress */
+
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-4);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--mono);
+}
+
+/* -------------------------------------------------------------- settings */
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--line);
+  min-height: 60px;
+  flex-wrap: wrap;
+}
+
+.setting-row:last-child {
+  border-bottom: 0;
+}
+
+.setting-row__label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 200px;
+  color: var(--fg);
+}
+
+.setting-row__control {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.seg__btn {
+  min-height: 44px;
+  min-width: 46px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+.seg__btn[aria-pressed='true'],
+.seg__btn.is-on {
+  background: var(--bg-elev);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.switch {
+  position: relative;
+  width: 60px;
+  height: 34px;
+  min-height: 44px;
+  min-width: 60px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev-2);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.switch__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--fg-mute);
+  transition: transform var(--dur-2) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.switch[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 30%, var(--bg-elev-2));
+  border-color: var(--accent);
+}
+
+.switch[aria-pressed='true'] .switch__dot {
+  background: var(--accent);
+  transform: translateX(24px);
+}
+
+select,
+input[type='text'],
+input[type='number'] {
+  min-height: 46px;
+  padding: 0 var(--sp-3);
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+}
+
+textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: var(--sp-3);
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+}
+
+/* ----------------------------------------------------------------- about */
+
+.screen--about .prose,
+.screen-about .prose,
+.prose {
+  max-width: 66ch;
+}
+
+.prose h2 {
+  margin-top: var(--sp-6);
+}
+
+.prose p,
+.prose li {
+  color: var(--fg-dim);
+}
+
+/* ------------------------------------------------------------ boot error */
+
+.boot-error {
+  max-width: 520px;
+  margin: 12vh auto;
+  padding: var(--sp-5);
+  background: var(--bg-elev);
+  border: 1px solid var(--bad);
+  border-radius: var(--r-lg);
+  text-align: center;
+  color: var(--fg-dim);
+}
+
+.boot-error .icon {
+  color: var(--bad);
+  margin: 0 auto var(--sp-4);
+}
+
+/* ------------------------------------------------- screen-local fallbacks */
+
+/* Screens keep local fallback markup in case a shared component is unavailable.
+   These aliases make that fallback render identically to the real component. */
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 650;
+}
+
+.ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.ico svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--ui-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ico svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  padding: var(--sp-3);
+  background: var(--bg-elev);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--stim);
+  cursor: pointer;
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--bg-elev-2);
+}
+
+.option svg {
+  width: 100%;
+  height: auto;
+}
+
+.note {
+  color: var(--fg-dim);
+  font-size: 0.92rem;
+  max-width: 62ch;
+}
+
+.hero-demo,
+.demo-gate {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  color: var(--stim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.hero-demo svg,
+.demo-gate svg {
+  width: 100%;
+  height: auto;
+  max-height: 46vh;
+}
+
+.index-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 2rem + 8vw, 5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--band, var(--fg));
+}
+
+.level-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-height: 96px;
+  padding: var(--sp-4);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.level-node:disabled,
+.level-node.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Phone: screens carry their own inline padding for resilience, so the stimulus
+   containers are trimmed here with !important — the only way to reclaim the room
+   an inline style holds, and scoped to narrow viewports only. */
+@media (max-width: 430px) {
+  .hero,
+  .stage {
+    padding: var(--sp-3) !important;
+  }
+
+  .hero-demo,
+  .demo-gate {
+    padding: var(--sp-2) !important;
+    min-height: 0 !important;
+  }
+}

@@ -324,3 +324,32 @@ test('a password-only deployment reports itself healthy', () => {
     }
   }
 });
+
+/* ------------------------------------------------- padded env variables */
+
+test('a value pasted with surrounding whitespace still works, and says so', async () => {
+  // This is not hypothetical: the production GOOGLE_CLIENT_ID arrived with a
+  // leading tab, was sent to Google percent-encoded as %09, and Google answered
+  // invalid_client while the dashboard showed a correct-looking value.
+  const { env, envWasPadded } = await import('../api/_env.js');
+  const saved = { s: process.env.SESSION_SECRET, i: process.env.GOOGLE_CLIENT_ID };
+  try {
+    process.env.GOOGLE_CLIENT_ID = '\t589168763925-abc.apps.googleusercontent.com\n';
+    assert.equal(env('GOOGLE_CLIENT_ID'), '589168763925-abc.apps.googleusercontent.com');
+    assert.equal(envWasPadded('GOOGLE_CLIENT_ID'), true);
+
+    // A secret that is only long enough BEFORE trimming must not pass.
+    process.env.SESSION_SECRET = '   short   ';
+    assert.equal(sessionSecret(), null, 'padding does not count toward the length');
+
+    process.env.SESSION_SECRET = `  ${'q'.repeat(40)}  `;
+    assert.equal(sessionSecret(), 'q'.repeat(40), 'and the trimmed value is what gets used');
+    assert.equal(configReport().SESSION_SECRET, 'ok (whitespace trimmed)');
+    assert.equal(envWasPadded('DATABASE_URL'), false, 'a clean value is not flagged');
+  } finally {
+    for (const [k, v] of [['SESSION_SECRET', saved.s], ['GOOGLE_CLIENT_ID', saved.i]]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

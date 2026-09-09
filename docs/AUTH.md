@@ -245,7 +245,16 @@ both as false and the screen says accounts are unavailable on this deployment.
 | `PUBLIC_ORIGIN` | Google, optionally | pins the redirect URI when the host varies |
 
 `SESSION_SECRET` under 32 characters is treated as absent rather than used weakly: an
-endpoint that is unavailable is better than one anybody can forge a session against.
+endpoint that is unavailable is better than one anybody can forge a session against. The
+length is measured **after** trimming.
+
+Every variable is read through `api/_env.js`, which trims it. Values pasted into a hosting
+dashboard routinely pick up a leading tab or a trailing newline, and the symptoms are
+baffling: a client id with one tab in front is percent-encoded into the authorisation URL
+as `%09...` and Google answers `invalid_client`, while the dashboard shows something that
+looks exactly right. `GET /api/auth/session` reports `ok (whitespace trimmed)` for any
+variable that needed it, so the padding still gets cleaned up at the source rather than
+living on invisibly.
 
 Register this redirect URI on the Google client, exactly:
 

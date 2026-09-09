@@ -11,6 +11,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { query, databaseConfigured } from '../_db.js';
+import { env } from '../_env.js';
 import {
   sessionSecret, createSession, setSessionCookie,
   setOAuthState, readOAuthState, clearOAuthState,
@@ -22,7 +23,7 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 
 export function googleConfigured() {
-  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  return !!(env('GOOGLE_CLIENT_ID') && env('GOOGLE_CLIENT_SECRET'));
 }
 
 /**
@@ -30,7 +31,7 @@ export function googleConfigured() {
  * matches the redirect URI byte for byte. PUBLIC_ORIGIN pins it when set.
  */
 function redirectUri(req) {
-  const base = process.env.PUBLIC_ORIGIN || originOf(req);
+  const base = env('PUBLIC_ORIGIN') || originOf(req);
   return `${base.replace(/\/+$/, '')}/api/auth/google`;
 }
 
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(req.url, 'http://localhost');
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = env('GOOGLE_CLIENT_ID');
 
   /* ------------------------------------------------------------- start */
   if (!url.searchParams.has('code') && !url.searchParams.has('error')) {
@@ -191,7 +192,7 @@ export default async function handler(req, res) {
     const body = new URLSearchParams({
       code: url.searchParams.get('code'),
       client_id: clientId,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_secret: env('GOOGLE_CLIENT_SECRET'),
       redirect_uri: redirectUri(req),
       grant_type: 'authorization_code',
       code_verifier: saved.verifier

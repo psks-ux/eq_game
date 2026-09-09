@@ -9,6 +9,7 @@ import {
 } from 'node:crypto';
 import { promisify } from 'node:util';
 import { query } from './_db.js';
+import { env, envWasPadded } from './_env.js';
 
 const scrypt = promisify(scryptCb);
 
@@ -27,7 +28,7 @@ const LOCKOUT_MINUTES = 15;
 /* ----------------------------------------------------------------- secrets */
 
 export function sessionSecret() {
-  const s = process.env.SESSION_SECRET || '';
+  const s = env('SESSION_SECRET');
   /* Fail closed. A default or derived secret would let anyone who knows the
      scheme forge a session, which is worse than the endpoint being unavailable. */
   return s.length >= 32 ? s : null;
@@ -41,22 +42,28 @@ export function sessionSecret() {
  * looks identical from outside to one that was never set.
  */
 export function configReport() {
-  const secret = process.env.SESSION_SECRET || '';
-  const id = process.env.GOOGLE_CLIENT_ID || '';
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+  const secret = env('SESSION_SECRET');
 
   const report = {
-    DATABASE_URL: process.env.DATABASE_URL ? 'ok' : 'missing',
+    DATABASE_URL: env('DATABASE_URL') ? 'ok' : 'missing',
     SESSION_SECRET: !secret ? 'missing'
       : secret.length < 32 ? `too_short (${secret.length} chars, need 32)` : 'ok',
-    GOOGLE_CLIENT_ID: id ? 'ok' : 'missing',
-    GOOGLE_CLIENT_SECRET: clientSecret ? 'ok' : 'missing'
+    GOOGLE_CLIENT_ID: env('GOOGLE_CLIENT_ID') ? 'ok' : 'missing',
+    GOOGLE_CLIENT_SECRET: env('GOOGLE_CLIENT_SECRET') ? 'ok' : 'missing'
   };
+
+  /* Say so rather than silently papering over it: the value still works because
+     env() trims, but a padded variable is worth cleaning up at the source, and
+     without this the dashboard and the diagnosis disagree about what is stored. */
+  for (const name of Object.keys(report)) {
+    if (report[name] === 'ok' && envWasPadded(name)) report[name] = 'ok (whitespace trimmed)';
+  }
   /* Google is genuinely optional -- .env.example and docs/AUTH.md both say a
      password-only deployment is supported -- so only the two variables that are
      always required decide whether this deployment is healthy. Reading `ok` back
      out of the object it is being assigned to would also always be undefined. */
-  report.ok = report.DATABASE_URL === 'ok' && report.SESSION_SECRET === 'ok';
+  report.ok = String(report.DATABASE_URL).startsWith('ok')
+    && String(report.SESSION_SECRET).startsWith('ok');
   return report;
 }
 
@@ -83,7 +90,8 @@ export function crossSiteProblem(req, options) {
   const origin = req.headers.origin;
   if (origin) {
     const allowed = [originOf(req)];
-    if (process.env.PUBLIC_ORIGIN) allowed.push(process.env.PUBLIC_ORIGIN.replace(/\/+$/, ''));
+    const pinned = env('PUBLIC_ORIGIN');
+    if (pinned) allowed.push(pinned.replace(/\/+$/, ''));
     if (!allowed.includes(origin)) return 'cross_site';
   }
   return null;

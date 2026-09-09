@@ -10,6 +10,7 @@
  */
 
 import { databaseConfigured } from '../_db.js';
+import { env } from '../_env.js';
 import {
   sessionSecret, readSession, destroySession, clearSessionCookie,
   SESSION_COOKIE, readCookie, configReport, crossSiteProblem, json
@@ -19,7 +20,7 @@ function providers() {
   const ready = databaseConfigured() && !!sessionSecret();
   return {
     password: ready,
-    google: ready && !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+    google: ready && !!(env('GOOGLE_CLIENT_ID') && env('GOOGLE_CLIENT_SECRET'))
   };
 }
 

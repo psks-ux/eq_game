@@ -4,7 +4,11 @@
  * Underscore-prefixed, so Vercel does not expose it as a route.
  */
 
-const RAW = process.env.DATABASE_URL || '';
+import { env } from './_env.js';
+
+/* Trimmed: a connection string pasted into a dashboard often carries a trailing
+   newline, and `new URL()` below would take it as part of the host. */
+const RAW = env('DATABASE_URL');
 
 let endpoint = null;
 function sqlEndpoint() {

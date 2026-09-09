@@ -12,7 +12,7 @@
 import { databaseConfigured } from '../_db.js';
 import {
   sessionSecret, readSession, destroySession, clearSessionCookie,
-  SESSION_COOKIE, readCookie, configReport, json
+  SESSION_COOKIE, readCookie, configReport, crossSiteProblem, json
 } from '../_auth.js';
 
 function providers() {
@@ -39,15 +39,27 @@ export default async function handler(req, res) {
   const available = providers();
 
   if (req.method === 'DELETE') {
-    /* Clear the cookie whatever happens: a client asking to sign out must end up
-       signed out even if the row could not be deleted. */
-    clearSessionCookie(req, res);
+    /* A forced sign-out is a milder forgery than a forced sign-in, but it is still
+       not something another origin gets to do. No body, so no content-type rule. */
+    const forged = crossSiteProblem(req, { requireJson: false });
+    if (forged) return json(res, 403, { error: forged });
+
+    /* Delete FIRST. Clearing the cookie and then failing would strand a row that
+       nothing can ever reach again -- the client no longer holds the token, and
+       destroySession(null) returns early. Revocation must not depend on the caller
+       still holding the credential being revoked. */
+    let revoked = true;
     try {
       if (available.password) await destroySession(readCookie(req, SESSION_COOKIE));
     } catch (err) {
-      console.error('sign-out cleanup failed:', err && err.message);
+      revoked = false;
+      console.error('sign-out revocation failed:', err && err.message);
     }
-    return json(res, 200, withConfig({ ok: true, signedIn: false, providers: available }));
+    /* Clear it either way: someone who asked to sign out must end up signed out
+       locally even when the server could not revoke. */
+    clearSessionCookie(req, res);
+    return json(res, revoked ? 200 : 502,
+      withConfig({ ok: revoked, revoked, signedIn: false, providers: available }));
   }
 
   if (req.method !== 'GET') {

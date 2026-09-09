@@ -178,6 +178,13 @@ export default async function handler(req, res) {
         }
 
         const merged = mergeProfiles(incoming, row.profile);
+        /* Measure what is actually STORED, not merely what arrived. Every
+           container in the merge is a union, so repeated under-the-limit POSTs
+           for one identity grow the row without bound until it stops being
+           readable at all -- and any 20-character string is a valid identity. */
+        if (Buffer.byteLength(JSON.stringify(merged), 'utf8') > MAX_BODY_BYTES) {
+          return send(res, 413, { error: 'profile_too_large' });
+        }
         const updated = await updateRow(who, merged, row.rev);
         if (!updated.length) continue; // lost the race; merge again against the new row
 

@@ -53,9 +53,22 @@ function mergeMap(a, b, combine) {
   return { ...out };
 }
 
+/* An append-only history with no ceiling is a growth vector: every merge is a
+   union, so a hostile client can POST new records forever and the stored document
+   only ever gets bigger. Keeping the newest N bounds it. 200 administrations is
+   far past any real use and still a small document. */
+const MAX_ASSESSMENTS = 200;
+
 /**
  * Assessments are append-only history: union them, keyed by the instant they were
- * taken. Two records with the same `at` are the same administration seen twice.
+ * taken and the index recorded, then order them totally.
+ *
+ * The sort MUST break ties on `index`, not just `at`. Records sharing an `at`
+ * both survive the union, a sort on `at` alone leaves them in insertion order,
+ * and `deriveStanding` reads the last one -- so without the tiebreak
+ * mergeProfiles(A, B) and mergeProfiles(B, A) disagree about whether someone was
+ * eliminated. Ties are not hypothetical: `store.js` normalises a record with no
+ * numeric `at` to zero, which every legacy `history` import produces.
  */
 function mergeAssessments(a, b) {
   const seen = new Map();
@@ -70,7 +83,10 @@ function mergeAssessments(a, b) {
       if (!prev || Object.keys(rec).length > Object.keys(prev).length) seen.set(key, rec);
     }
   }
-  return [...seen.values()].sort((x, y) => num(x.at, 0) - num(y.at, 0));
+  const ordered = [...seen.values()].sort((x, y) =>
+    num(x.at, 0) - num(y.at, 0) || num(x.index, 0) - num(y.index, 0));
+  // Drop from the OLD end: the newest administration decides standing.
+  return ordered.length > MAX_ASSESSMENTS ? ordered.slice(-MAX_ASSESSMENTS) : ordered;
 }
 
 /** One level's progress. Every field takes the better of the two. */

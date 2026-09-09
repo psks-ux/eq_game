@@ -14,6 +14,7 @@ import * as resultScreen from './ui/screens/result.js';
 import * as eliminatedScreen from './ui/screens/eliminated.js';
 import { syncAvailable, syncEligible, syncNow } from './core/sync.js';
 import { authAvailable, loadSession, consumeRedirectResult } from './core/auth.js';
+import { adoptInto } from './ui/syncCard.js';
 import * as trainScreen from './ui/screens/train.js';
 import * as drillScreen from './ui/screens/drill.js';
 import * as progressScreen from './ui/screens/progress.js';
@@ -335,9 +336,12 @@ function bootSync() {
     .then(() => (syncEligible() ? syncNow({ profile }) : null))
     .then((res) => {
       if (!res || !res.ok || !res.profile) return;
-      /* Adopt the merged copy into the module's own reference. persist() flushes
-         this object on pagehide, so leaving it stale would overwrite the merge. */
-      profile = res.profile;
+      /* Mutate in place, never `profile = res.profile`. router.start() runs before
+         this and buildContext snapshots the context once per mount, so the screen
+         already on screen holds THIS object. Swapping the reference would leave it
+         pinned to the pre-merge copy, which persist() then stamps with a newer
+         timestamp and writes back over the merged one. */
+      adoptInto(profile, res.profile);
       applySettings(profile);
       enforceGate();
       if (bus && typeof bus.emit === 'function') {

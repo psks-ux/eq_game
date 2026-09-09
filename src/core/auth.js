@@ -76,6 +76,10 @@ async function request(url, options) {
   try {
     const res = await fetch(url, {
       ...options,
+      /* Without this the controller above is decoration: the timeout fires, the
+         fetch ignores it, REQUEST_TIMEOUT_MS means nothing and the AbortError
+         branch below is unreachable. sync.js has always passed it. */
+      signal: controller.signal,
       /* The session cookie is the whole point of every call in this module. */
       credentials: 'same-origin',
       cache: 'no-store'
@@ -91,7 +95,12 @@ async function request(url, options) {
 export function loadSession(force) {
   if (!authAvailable()) return Promise.resolve(apply(EMPTY));
   if (!force && state.loaded) return Promise.resolve(state);
-  if (inFlight) return inFlight;
+  /* `force` has to be honoured here too. A refresh after sign-in or sign-out must
+     not be handed a promise for a GET that was already in flight with the OLD
+     cookie jar -- that answer is guaranteed stale, and apply() would announce it
+     to every listener as the new truth. */
+  if (inFlight && !force) return inFlight;
+  if (inFlight) return inFlight.catch(() => null).then(() => loadSession(true));
 
   inFlight = request(SESSION_URL, { method: 'GET' })
     .then(({ ok, payload }) => apply(ok ? payload : EMPTY))

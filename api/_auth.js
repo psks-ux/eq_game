@@ -52,8 +52,41 @@ export function configReport() {
     GOOGLE_CLIENT_ID: id ? 'ok' : 'missing',
     GOOGLE_CLIENT_SECRET: clientSecret ? 'ok' : 'missing'
   };
-  report.ok = Object.keys(report).every((k) => k === 'ok' || report[k] === 'ok');
+  /* Google is genuinely optional -- .env.example and docs/AUTH.md both say a
+     password-only deployment is supported -- so only the two variables that are
+     always required decide whether this deployment is healthy. Reading `ok` back
+     out of the object it is being assigned to would also always be undefined. */
+  report.ok = report.DATABASE_URL === 'ok' && report.SESSION_SECRET === 'ok';
   return report;
+}
+
+/**
+ * Refuse state-changing requests that a cross-origin page could have forged.
+ *
+ * `SameSite=Lax` governs when the browser SENDS our cookie, not whether it may
+ * accept a `Set-Cookie` on a top-level cross-site POST -- so login CSRF needs its
+ * own guard. Requiring `application/json` is the load-bearing half: an HTML form
+ * cannot send that content type without a preflight the attacker's page will fail.
+ * The Origin and Sec-Fetch-Site checks are the belt to that braces, and both are
+ * skipped when absent so that non-browser callers still work.
+ */
+export function crossSiteProblem(req, options) {
+  const opts = options || {};
+  if (opts.requireJson !== false) {
+    const ct = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (ct !== 'application/json') return 'bad_content_type';
+  }
+
+  const site = req.headers['sec-fetch-site'];
+  if (site && site !== 'same-origin' && site !== 'none') return 'cross_site';
+
+  const origin = req.headers.origin;
+  if (origin) {
+    const allowed = [originOf(req)];
+    if (process.env.PUBLIC_ORIGIN) allowed.push(process.env.PUBLIC_ORIGIN.replace(/\/+$/, ''));
+    if (!allowed.includes(origin)) return 'cross_site';
+  }
+  return null;
 }
 
 /* --------------------------------------------------------------- passwords */
@@ -141,26 +174,62 @@ export async function destroySession(token) {
   await query('delete from sessions where token_hash = $1', [hashToken(token)]);
 }
 
-/* ----------------------------------------------------------------- lockout */
-
-export async function lockoutRemaining(user) {
-  if (!user || !user.locked_until) return 0;
-  const until = new Date(user.locked_until).getTime();
-  const left = until - Date.now();
-  return left > 0 ? Math.ceil(left / 60000) : 0;
+/**
+ * Revoke every session a user holds. Not wired to a route yet, but the moment a
+ * password change or reset exists it is mandatory -- and `sessions_user_id_idx`
+ * was already created for exactly this query.
+ */
+export async function destroyAllSessions(userId) {
+  if (!userId) return;
+  await query('delete from sessions where user_id = $1', [userId]);
 }
 
-export async function noteFailedLogin(userId) {
-  await query(
-    `update users
-        set failed_attempts = failed_attempts + 1,
-            locked_until = case when failed_attempts + 1 >= $2
+/* ----------------------------------------------------------------- lockout */
+
+/**
+ * Claim one attempt slot: gate, increment, and arm the lock in ONE statement.
+ *
+ * The original shape read `locked_until`, then spent ~100ms in scrypt, then
+ * incremented -- a check-then-act window held open by the deliberately slow hash,
+ * through which any number of concurrent requests all passed the gate. `_db.js`
+ * sends one statement per HTTP round trip with no transaction available, so the
+ * gate and the increment have to be the same statement or they are not a gate.
+ *
+ * Arming the lock here rather than after the verify is what makes it hold under
+ * concurrency. Postgres serialises concurrent UPDATEs of one row, and re-checks
+ * the WHERE predicate against the committed value, so once the Nth caller sets
+ * `locked_until` every queued caller behind it fails the predicate and is
+ * refused. Waiting for a failed verify to arm it would let a burst of parallel
+ * requests all pass the gate before any of them had finished.
+ *
+ * The `case` also decays: an expired lock resets the counter instead of leaving
+ * the account one mistyped password away from being re-locked forever.
+ */
+export async function claimLoginAttempt(userId) {
+  const claimed = await query(
+    `with next as (
+       select case when locked_until is not null and locked_until <= now()
+                   then 0 else failed_attempts end + 1 as n
+         from users where id = $1
+     )
+     update users
+        set failed_attempts = (select n from next),
+            locked_until = case when (select n from next) >= $2
                                 then now() + ($3 || ' minutes')::interval
-                                else locked_until end,
+                                else null end,
             updated_at = now()
-      where id = $1`,
+      where id = $1 and (locked_until is null or locked_until <= now())
+  returning failed_attempts`,
     [userId, MAX_FAILED_ATTEMPTS, String(LOCKOUT_MINUTES)]
   );
+  if (claimed.length) return { allowed: true, attempts: Number(claimed[0].failed_attempts) };
+
+  const rows = await query(
+    'select extract(epoch from (locked_until - now())) as secs from users where id = $1',
+    [userId]
+  );
+  const secs = rows.length ? Number(rows[0].secs) : 0;
+  return { allowed: false, minutes: Math.max(1, Math.ceil((secs > 0 ? secs : 60) / 60)) };
 }
 
 export async function clearFailedLogins(userId) {

@@ -257,3 +257,68 @@ test('merge does not mutate its inputs', () => {
   assert.equal(canon(a), beforeA, 'local input was mutated');
   assert.equal(canon(b), beforeB, 'remote input was mutated');
 });
+
+/* --------------------------------------------------- colliding timestamps */
+
+/* The original property tests drew `at` from a 1,000,000-wide range and so never
+   produced a tie -- which is exactly how an order-dependent merge passed 226
+   tests. These force the collision. */
+
+test('assessments sharing an `at` still merge commutatively', () => {
+  for (const [x, y] of [[140, 88], [88, 140], [100, 99], [200, 100]]) {
+    const A = { version: 1, updatedAt: 10, assessments: [{ at: 1000, index: x }] };
+    const B = { version: 1, updatedAt: 10, assessments: [{ at: 1000, index: y }] };
+    const ab = mergeProfiles(A, B);
+    const ba = mergeProfiles(B, A);
+    assert.equal(ab.status, ba.status, `status flipped for ${x}/${y}`);
+    assert.equal(ab.currentIndex, ba.currentIndex, `index flipped for ${x}/${y}`);
+    assert.deepEqual(ab.assessments, ba.assessments, `order differed for ${x}/${y}`);
+  }
+});
+
+test('a legacy import whose records all normalise to at:0 still converges', () => {
+  // store.js gives a record with no numeric `at` the value 0, so every pre-v1
+  // `history` import produces a pile of ties. Standing must not depend on which
+  // way round the merge ran.
+  const legacy = [{ at: 0, index: 140 }, { at: 0, index: 88 }];
+  const A = { version: 1, updatedAt: 5, assessments: legacy };
+  const B = { version: 1, updatedAt: 5, assessments: legacy.slice().reverse() };
+  const ab = mergeProfiles(A, B);
+  const ba = mergeProfiles(B, A);
+  assert.equal(ab.status, ba.status);
+  assert.equal(ab.currentIndex, ba.currentIndex);
+});
+
+test('a tie-heavy history is idempotent and associative', () => {
+  const rng = makeRng(4242);
+  for (let trial = 0; trial < 40; trial++) {
+    const make = () => {
+      const out = [];
+      for (let i = 0; i < rng.int(1, 6); i++) {
+        // A three-value range guarantees collisions across profiles.
+        out.push({ at: rng.int(1000, 1002), index: rng.int(80, 190) });
+      }
+      return { version: 1, updatedAt: rng.int(1, 100), assessments: out };
+    };
+    const [A, B, C] = [make(), make(), make()];
+    const once = mergeProfiles(A, B);
+    assert.deepEqual(mergeProfiles(once, once), once, 'not idempotent');
+    assert.deepEqual(
+      mergeProfiles(mergeProfiles(A, B), C),
+      mergeProfiles(A, mergeProfiles(B, C)),
+      'not associative'
+    );
+  }
+});
+
+test('assessment history is capped so a union cannot grow without bound', () => {
+  const many = [];
+  for (let i = 0; i < 500; i++) many.push({ at: 1000 + i, index: 100 + (i % 90) });
+  const merged = mergeProfiles(
+    { version: 1, updatedAt: 1, assessments: many },
+    { version: 1, updatedAt: 1, assessments: [] }
+  );
+  assert.ok(merged.assessments.length <= 200, `kept ${merged.assessments.length}`);
+  // The newest must survive the trim -- it is what decides standing.
+  assert.equal(merged.assessments[merged.assessments.length - 1].at, 1499);
+});

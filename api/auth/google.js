@@ -77,23 +77,47 @@ function claimsValid(claims, clientId) {
   return true;
 }
 
-async function findOrCreateUser(sub, email, emailVerified) {
+/**
+ * Resolve the Google identity to a user row, refusing rather than guessing.
+ * Returns a user id, or null meaning "do not sign anyone in".
+ *
+ * Two directions of takeover have to be closed, and only one of them is obvious:
+ *
+ *  - Attacker registers a password account at victim@example.com. Registration
+ *    proves nothing, because there is no mail service. The victim later signs in
+ *    with Google, and linking on a matching address alone would hand them the
+ *    ATTACKER's row: the victim's profile syncs into it and the attacker's
+ *    password still works. So a local row is linkable only if WE verified it,
+ *    not merely because Google verified its own copy of the address.
+ *  - Attacker registers the address at Google. Covered by requiring Google's
+ *    `email_verified`, which was already the case here.
+ */
+export async function findOrCreateUser(sub, email, emailVerified) {
   const bySub = await query('select id from users where google_sub = $1', [sub]);
   if (bySub.length) return bySub[0].id;
 
-  /* Link to an existing password account only when Google says the address is
-     verified. Linking on an unverified claim would let anyone who can register
-     that address at Google take over the matching local account. */
   if (email && emailVerified) {
-    const byEmail = await query('select id, google_sub from users where email = $1', [email]);
+    const byEmail = await query(
+      'select id, google_sub, password_hash, email_verified from users where email = $1',
+      [email]
+    );
     if (byEmail.length) {
-      if (!byEmail[0].google_sub) {
-        await query(
-          'update users set google_sub = $2, email_verified = true, updated_at = now() where id = $1',
-          [byEmail[0].id, sub]
-        );
-      }
-      return byEmail[0].id;
+      const row = byEmail[0];
+      /* Reaching here with google_sub set means the row belongs to a DIFFERENT
+         Google subject -- the lookup above already missed on this one. That is a
+         recycled or reassigned Workspace address, not our user. Refuse. */
+      if (row.google_sub) return row.google_sub === sub ? row.id : null;
+
+      /* An unverified local password row is an unproven claim on this address.
+         With no mail service there is no way to prove it, so refusing is the only
+         honest answer; the person can sign in with their password instead. */
+      if (row.password_hash && !row.email_verified) return null;
+
+      await query(
+        'update users set google_sub = $2, email_verified = true, updated_at = now() where id = $1',
+        [row.id, sub]
+      );
+      return row.id;
     }
   }
 
@@ -190,6 +214,11 @@ export default async function handler(req, res) {
 
     const email = typeof claims.email === 'string' ? claims.email.toLowerCase() : null;
     const userId = await findOrCreateUser(claims.sub, email, claims.email_verified === true);
+    if (!userId) {
+      /* An existing row claims this address and we cannot prove it belongs to
+         the person in front of us. Refusing beats handing over someone's account. */
+      return backToApp(res, next, { auth: 'link_conflict' });
+    }
     const { token, expires } = await createSession(userId, req.headers['user-agent']);
     setSessionCookie(req, res, token, expires);
     return backToApp(res, next, { auth: 'in' });

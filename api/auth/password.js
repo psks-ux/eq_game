@@ -11,8 +11,8 @@
 import { query, databaseConfigured } from '../_db.js';
 import {
   sessionSecret, hashPassword, verifyPassword, passwordProblem, normaliseEmail,
-  createSession, setSessionCookie, lockoutRemaining, noteFailedLogin,
-  clearFailedLogins, json
+  createSession, setSessionCookie, claimLoginAttempt,
+  clearFailedLogins, crossSiteProblem, json
 } from '../_auth.js';
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -76,7 +76,7 @@ async function register(req, res, email, password) {
 
 async function signin(req, res, email, password) {
   const rows = await query(
-    'select id, password_hash, google_sub, locked_until from users where email = $1',
+    'select id, password_hash, google_sub from users where email = $1',
     [email]
   );
   if (!rows.length) {
@@ -87,17 +87,21 @@ async function signin(req, res, email, password) {
   }
 
   const user = rows[0];
-  const locked = await lockoutRemaining(user);
-  if (locked > 0) {
+  /* Claim the attempt BEFORE verifying. The gate and the increment have to be one
+     statement, or the ~100ms scrypt below is a window that every concurrent
+     request walks straight through -- see claimLoginAttempt. */
+  const claim = await claimLoginAttempt(user.id);
+  if (!claim.allowed) {
     return json(res, 429, {
       error: 'locked',
-      message: `Too many attempts. Try again in ${locked} minute${locked === 1 ? '' : 's'}.`
+      message: `Too many attempts. Try again in ${claim.minutes} minute${claim.minutes === 1 ? '' : 's'}.`
     });
   }
 
   const ok = user.password_hash && await verifyPassword(password, user.password_hash);
   if (!ok) {
-    await noteFailedLogin(user.id);
+    /* Nothing to do: the claim above already counted this attempt and armed the
+       lock if it was the last one. A success below is what undoes it. */
     return json(res, 401, { error: 'bad_credentials', message: GENERIC });
   }
 
@@ -114,6 +118,17 @@ export default async function handler(req, res) {
   }
   if (!databaseConfigured() || !sessionSecret()) {
     return json(res, 503, { error: 'auth_unconfigured' });
+  }
+
+  /* Login CSRF: without this, a cross-origin page can auto-submit a form that
+     signs the visitor into the ATTACKER's account, after which the app helpfully
+     syncs the victim's profile into it. */
+  const forged = crossSiteProblem(req);
+  if (forged) {
+    return json(res, forged === 'bad_content_type' ? 415 : 403, {
+      error: forged,
+      message: 'This request did not come from the app.'
+    });
   }
 
   const body = await readBody(req);

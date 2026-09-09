@@ -12,7 +12,7 @@ process.env.SESSION_SECRET = 'test-secret-that-is-comfortably-long-enough';
 const {
   hashPassword, verifyPassword, passwordProblem, normaliseEmail,
   readCookie, setOAuthState, readOAuthState, sessionSecret,
-  randomToken, sha256Base64Url, originOf, configReport
+  randomToken, sha256Base64Url, originOf, configReport, crossSiteProblem
 } = await import('../api/_auth.js');
 
 /* ------------------------------------------------------------- harness */
@@ -243,5 +243,84 @@ test('configReport names what is missing, and never a value', () => {
     }
   } finally {
     restore();
+  }
+});
+
+/* ------------------------------------------------------------ login CSRF */
+
+test('crossSiteProblem rejects what a cross-origin form can send', () => {
+  const same = { 'content-type': 'application/json', host: 'eq.example.com',
+    'x-forwarded-proto': 'https' };
+
+  assert.equal(crossSiteProblem(fakeReq(same)), null, 'a plain same-origin JSON POST');
+
+  // The load-bearing check: a browser cannot send these content types from a
+  // cross-origin form AND get application/json, so requiring it closes the hole.
+  for (const ct of ['application/x-www-form-urlencoded', 'text/plain', 'multipart/form-data', '']) {
+    assert.equal(
+      crossSiteProblem(fakeReq({ ...same, 'content-type': ct })),
+      'bad_content_type', `content-type ${ct || '(absent)'}`
+    );
+  }
+
+  assert.equal(
+    crossSiteProblem(fakeReq({ ...same, 'sec-fetch-site': 'cross-site' })),
+    'cross_site', 'fetch metadata says another origin'
+  );
+  assert.equal(
+    crossSiteProblem(fakeReq({ ...same, origin: 'https://evil.example' })),
+    'cross_site', 'a foreign Origin header'
+  );
+  assert.equal(
+    crossSiteProblem(fakeReq({ ...same, origin: 'https://eq.example.com' })),
+    null, 'our own Origin header'
+  );
+
+  // DELETE carries no body, so it opts out of the content-type rule but keeps
+  // the rest.
+  assert.equal(crossSiteProblem(fakeReq({ host: 'eq.example.com' }), { requireJson: false }), null);
+  assert.equal(
+    crossSiteProblem(fakeReq({ host: 'eq.example.com', 'sec-fetch-site': 'cross-site' }),
+      { requireJson: false }),
+    'cross_site'
+  );
+});
+
+test('PUBLIC_ORIGIN is accepted as an Origin even when the host header differs', () => {
+  const previous = process.env.PUBLIC_ORIGIN;
+  try {
+    process.env.PUBLIC_ORIGIN = 'https://eq-game-alpha.vercel.app';
+    const req = fakeReq({
+      'content-type': 'application/json',
+      host: 'internal-rewrite.vercel.app',
+      'x-forwarded-proto': 'https',
+      origin: 'https://eq-game-alpha.vercel.app'
+    });
+    assert.equal(crossSiteProblem(req), null);
+  } finally {
+    if (previous === undefined) delete process.env.PUBLIC_ORIGIN;
+    else process.env.PUBLIC_ORIGIN = previous;
+  }
+});
+
+test('a password-only deployment reports itself healthy', () => {
+  // Google is documented as independently optional, so its absence must not put
+  // a permanent `config` block on the anonymous session response.
+  const saved = { d: process.env.DATABASE_URL, s: process.env.SESSION_SECRET,
+    i: process.env.GOOGLE_CLIENT_ID, c: process.env.GOOGLE_CLIENT_SECRET };
+  try {
+    process.env.DATABASE_URL = 'postgresql://u:p@h/db';
+    process.env.SESSION_SECRET = 'z'.repeat(40);
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    const report = configReport();
+    assert.equal(report.GOOGLE_CLIENT_ID, 'missing');
+    assert.equal(report.ok, true, 'no Google credentials is a supported deployment');
+  } finally {
+    for (const [k, v] of [['DATABASE_URL', saved.d], ['SESSION_SECRET', saved.s],
+      ['GOOGLE_CLIENT_ID', saved.i], ['GOOGLE_CLIENT_SECRET', saved.c]]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
   }
 });

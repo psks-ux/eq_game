@@ -61,15 +61,37 @@ one digit, one symbol) push people toward `Password1!` and buy less than length 
 
 ## Online guessing
 
-Eight consecutive failures lock an account for fifteen minutes; a success clears the
-counter. The lock is per account, stored on the row, so it survives across serverless
-instances where an in-memory rate limiter would not.
+Eight failures lock an account for fifteen minutes; a success clears the counter, and so
+does the lock lapsing — an expired lock resets the count to zero rather than leaving the
+account one mistyped password away from being locked again forever. The lock is per
+account, stored on the row, so it survives across serverless instances where an in-memory
+rate limiter would not.
+
+The gate and the increment are **one statement** (`claimLoginAttempt`). They have to be:
+`_db.js` sends one statement per HTTP round trip with no transaction available, and the
+~100ms scrypt sits between reading the counter and writing it. Checking first and
+incrementing after would make the attacker's concurrency, not `MAX_FAILED_ATTEMPTS`, the
+real bound on how many guesses a window allows.
 
 Failed sign-in always answers with the same sentence, whether the address is unknown, the
 password is wrong, or the account has only ever used Google — those three facts are
 exactly what an attacker is probing for. When the address is unknown the endpoint still
 spends a full scrypt hash before answering, so response time does not leak the answer that
 the message withholds.
+
+### Cross-site request forgery
+
+`POST /api/auth/password` requires `Content-Type: application/json`, and rejects a
+mismatched `Origin` or a `Sec-Fetch-Site` that is not `same-origin`. `DELETE
+/api/auth/session` gets the same treatment minus the content-type rule, since it carries no
+body.
+
+`SameSite=Lax` does **not** cover this. It governs when the browser *sends* our cookie, not
+whether it may accept a `Set-Cookie` in the response to a top-level cross-site POST. Without
+the guard, a page on another origin could auto-submit a form that signs the visitor into the
+*attacker's* account — after which the app helpfully syncs the victim's profile into it. The
+content-type requirement is the load-bearing half: an HTML form cannot send
+`application/json` without a preflight the attacker's page will fail.
 
 **Registration does reveal that an address is taken**, and that is a deliberate exception.
 Hiding it properly requires sending a verification email, which this deployment has no
@@ -89,7 +111,14 @@ redirect, and a `Strict` cookie is not sent with one — sign-in would appear to
 then not have happened. `Secure` is set whenever `x-forwarded-proto` is `https`, and
 omitted otherwise so that `http://localhost` development works at all.
 
-Signing out deletes the row and clears the cookie. It does **not** touch local storage:
+Signing out deletes the row **first**, then clears the cookie, and answers 502 if the
+delete failed. That order matters: clearing the cookie first and then failing would strand
+a row nothing could ever reach again, because the client would no longer hold the token
+that identifies it. The cookie is cleared in either case, so someone who asked to sign out
+is signed out locally even when the server could not revoke. `destroyAllSessions(userId)`
+exists for the day a password change or reset needs to revoke everything at once.
+
+Signing out does **not** touch local storage:
 ending a session is not the same as discarding the work done on that device, and treating
 it as such would lose someone's training the first time they signed out to switch accounts.
 
@@ -130,9 +159,26 @@ and `iat` must not be implausibly far ahead.
 
 ### Linking a Google sign-in to an existing password account
 
-Only when Google reports `email_verified: true`. Linking on an unverified claim would let
-anyone able to register that address at Google take over the matching local account. When
-the claim is unverified, a separate account is created with no email stored at all.
+Two directions of takeover have to be closed, and only one of them is obvious.
+
+**Attacker controls the address at Google.** Covered by requiring Google's own
+`email_verified: true`. When that claim is absent, a separate account is created with no
+email stored at all.
+
+**Attacker registered the address here first.** This is the one that is easy to miss.
+Registration proves nothing — there is no mail service, so anyone can create a password
+account at `victim@example.com`. If Google sign-in then linked on a matching address alone,
+the victim pressing *Continue with Google* would be handed the **attacker's** row: their
+profile would sync into it, and the attacker's password would still work. So a local row is
+linkable only if **we** verified it, never merely because Google verified its own copy. An
+unverified local password row causes the flow to refuse and return `?auth=link_conflict`,
+and the person is told to sign in with their password instead. Refusing is the only honest
+option until there is a mail service — the local claim cannot be proven.
+
+A row already carrying a *different* `google_sub` is also refused rather than reused. The
+lookup by `sub` runs first, so reaching that row means the address was recycled or
+reassigned (a Workspace account deleted and recreated for a new hire, say) and it is not
+the same person.
 
 ## What the server keeps
 

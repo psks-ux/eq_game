@@ -89,16 +89,21 @@ export function destroy() {
 function panel(ctx, repaint) {
   if (!authAvailable()) return offlinePanel(ctx);
   const state = session();
-  if (!state.loaded) return pendingPanel();
+  if (!state.loaded) return pendingPanel(ctx);
   if (state.signedIn) return signedInPanel(ctx, state);
   if (!state.providers.password && !state.providers.google) return unconfiguredPanel(ctx);
   return formPanel(ctx, state, repaint);
 }
 
-function pendingPanel() {
+function pendingPanel(ctx) {
   const card = h('section', { style: CARD_STYLE });
   card.appendChild(h('h1', { style: TITLE_STYLE, text: 'Sign in' }));
   card.appendChild(h('p', { style: NOTE_STYLE, text: 'Checking your session…' }));
+  /* Every other panel offers a way out, and this one has to as well. There is no
+     persistent chrome around the outlet, so a screen with no control is a dead
+     end for as long as the request takes -- and this screen promises the
+     opposite. */
+  card.appendChild(backRow(ctx, 'Continue without an account'));
   return card;
 }
 

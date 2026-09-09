@@ -51,7 +51,7 @@ property tests in `test/merge.test.js` rather than assumed.
 
 | Field | Rule | Why |
 |---|---|---|
-| `assessments` | union, keyed by `at` | Append-only history; the same administration seen twice is one record. |
+| `assessments` | union keyed by `at`+`index`, ordered by `at` then `index`, newest 200 kept | Append-only history. The `index` tiebreak is what keeps it commutative when two records share an `at` — and they do, because `store.js` normalises a record with no numeric `at` to zero, which every legacy `history` import produces. |
 | `status`, `currentIndex` | derived from the newest assessment | The most recent measurement is the truth. |
 | `peakIndex` | max over both sides and all assessments | A historical best never regresses. |
 | `tier` | max | A merge must never re-lock content already unlocked elsewhere. |
@@ -104,7 +104,10 @@ synchronous and offline. Sync is best-effort in every direction:
   untouched and the UI says so. Training is never interrupted by a failed sync.
 - `file://` or the standalone single-file build → `syncAvailable()` is false, the card
   explains that this copy runs offline only, and nothing else changes.
-- A profile over 1 MB is rejected with 413 rather than silently truncated.
+- A profile over 1 MB is rejected with 413 rather than silently truncated — measured on both
+  the incoming body **and** the merged document that would be stored, since every container
+  in the merge is a union and repeated under-the-limit writes would otherwise grow the row
+  without bound.
 
 ## Schema
 

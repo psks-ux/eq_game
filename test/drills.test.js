@@ -211,3 +211,52 @@ test('every curriculum level names a drill that can actually build a run', () =>
     assert.ok(levelById(level.id), `levelById cannot resolve ${level.id}`);
   }
 });
+
+/* ------------------------------------------------- span boards declare themselves */
+
+test('a span trial declares the board it was shown on', async () => {
+  /* The response grid used to be inferred from the answer indices when a trial
+     did not say. A corsi sequence that happened to stay inside the first nine
+     cells made that guess 3x3 -- so a 4x4 pattern was played back and then had
+     to be reproduced on a 9-cell board, where the same indices mean different
+     cells. It hit roughly one trial in six and was invisible from the code. */
+  const corsi = await import('../src/train/drills/corsi.js');
+  const { makeRng } = await import('../src/core/rng.js');
+
+  let checked = 0;
+  for (let seed = 1; seed <= 25; seed++) {
+    for (const level of [1, 2, 3, 5, 7, 9]) {
+      const run = corsi.makeRun(makeRng(seed * 131 + level), { level });
+      for (let i = 0; i < run.totalTrials; i++) {
+        const trial = run.nextTrial(level);
+        if (!trial) break;
+        checked++;
+        assert.ok(trial.grid, 'every span trial carries a grid');
+        assert.ok(trial.grid.rows > 0 && trial.grid.cols > 0, 'the grid has real dimensions');
+        const cells = trial.grid.rows * trial.grid.cols;
+        for (const idx of trial.answer) {
+          assert.ok(idx >= 0 && idx < cells,
+            `answer index ${idx} falls outside the declared ${trial.grid.rows}x${trial.grid.cols} board`);
+        }
+      }
+    }
+  }
+  assert.ok(checked > 500, `only ${checked} trials examined`);
+});
+
+test('the wordless demo shows the same board the drill uses', async () => {
+  /* The demo is the ONLY instruction this app gives -- it carries no words --
+     so a demo drawn on a different board than the task is a wrong instruction,
+     not a cosmetic mismatch. */
+  const { readFileSync } = await import('node:fs');
+  const corsiSrc = readFileSync(new URL('../src/train/drills/corsi.js', import.meta.url), 'utf8');
+  const demoSrc = readFileSync(new URL('../src/ui/demos.js', import.meta.url), 'utf8');
+
+  const drillGrid = Number(/^const GRID = (\d+);/m.exec(corsiSrc)[1]);
+  const demoBody = demoSrc.slice(demoSrc.indexOf('function corsiDemo()'));
+  const demoN = Number(/const N = (\d+);/.exec(demoBody)[1]);
+  const layout = /gridLayout\(N, N,/.test(demoBody);
+
+  assert.equal(demoN, drillGrid, `demo draws ${demoN}x${demoN}, drill uses ${drillGrid}x${drillGrid}`);
+  assert.ok(layout, 'the demo lays its board out from N rather than a literal');
+});

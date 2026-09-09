@@ -1308,9 +1308,16 @@ function resolveGrid(trial, level) {
     const c = Math.ceil(Math.sqrt(flat));
     return { rows: Math.ceil(flat / c), cols: c };
   }
+  /* Last resort only. Inferring a board from the answer indices is a guess, and
+     a wrong guess is invisible: the response grid simply renders at the wrong
+     size and every cell past the first row maps somewhere else. A drill that
+     reaches this line should be declaring `grid` on its trials instead. */
   const answer = Array.isArray(trial && trial.answer) ? trial.answer : [];
   const idxs = answer.filter((v) => typeof v === 'number' && Number.isFinite(v));
   const needed = idxs.length ? Math.max.apply(null, idxs) + 1 : 9;
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn('drill: trial declared no grid; inferring one from the answer indices');
+  }
   for (const side of [3, 4, 5, 6]) {
     if (side * side >= needed) return { rows: side, cols: side };
   }

@@ -855,8 +855,13 @@ function nbackDemo() {
 
 /* A path is shown, then reproduced. Order is carried by a trail, never a numeral. */
 function corsiDemo() {
-  const L = gridLayout(3, 3, 58, 16);
-  const path = [[0, 1], [1, 2], [2, 0]];
+  /* Four by four, because that is the board the drill actually uses. A demo is
+     the only instruction this app gives -- it carries no words -- so a demo that
+     shows a different board than the task is not a cosmetic mismatch, it is a
+     wrong instruction. */
+  const N = 4;
+  const L = gridLayout(N, N, 44, 12);
+  const path = [[0, 1], [1, 3], [3, 2]];
   const centre = (r, c) => [L.x(c) + L.cell / 2, L.y(r) + L.cell / 2];
 
   /* the lit block matches the drill: a solid rounded square in neutral ink */
@@ -864,8 +869,8 @@ function corsiDemo() {
 
   const boardWith = (lit, marks) => {
     let out = '';
-    for (let r = 0; r < 3; r += 1) {
-      for (let c = 0; c < 3; c += 1) {
+    for (let r = 0; r < N; r += 1) {
+      for (let c = 0; c < N; c += 1) {
         const key = `${r},${c}`;
         const state = (marks && marks[key]) || (lit && lit === key ? 'lit' : 'plain');
         const filled = state === 'lit' || state === 'accept' || state === 'reject';
@@ -893,7 +898,7 @@ function corsiDemo() {
     frame(boardWith(litKey(1), null) + trail(2), 780),
     frame(boardWith(litKey(2), null) + trail(3), 780),
     frame(boardWith(null, null), 850),
-    frame(boardWith(null, { '1,1': 'reject' }), 950),
+    frame(boardWith(null, { '2,1': 'reject' }), 950),
     frame(boardWith(null, { [litKey(0)]: 'accept' }), 780),
     frame(
       boardWith(null, {

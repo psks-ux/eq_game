@@ -283,6 +283,14 @@ export function makeRun(rng, params) {
         options: null,
         answerId: null,
         answer: built.expected.slice(),
+        /* The board this sequence was shown on. Without it the response UI has
+           to guess from the answer indices, and a sequence that happens to stay
+           inside the first nine cells makes it guess 3x3 -- so the person is
+           asked to reproduce a 4x4 pattern on a 9-cell board, where the indices
+           mean entirely different cells. It happened on roughly one trial in
+           six. A stimulus must state its own geometry; it is the only thing
+           that knows it. */
+        grid: { rows: GRID, cols: GRID },
         timeLimitMs: showMs + built.spec.span * 2500 + 4000,
         isiMs: 0
       };

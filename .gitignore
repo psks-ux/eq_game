@@ -10,3 +10,8 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Secrets — never commit. DATABASE_URL lives in Vercel env vars only.
+.env
+.env.*
+!.env.example

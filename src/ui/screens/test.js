@@ -12,6 +12,7 @@ import { go as routerGo } from '../router.js';
 import { createSession, CAT_DEFAULTS } from '../../core/cat.js';
 import { makeRng } from '../../core/rng.js';
 import { saveProfile } from '../../core/store.js';
+import { syncSoon } from '../../core/sync.js';
 import { tierFor } from '../../core/scale.js';
 
 const LAST_RESULT_KEY = 'eqgame.lastResult.v1';
@@ -312,6 +313,9 @@ function finish() {
   touchStreak(profile, at);
 
   try { saveProfile(profile); } catch (err) { /* store falls back to memory itself */ }
+  /* Push the new measurement to the other devices. Fire-and-forget: the profile
+     is already saved locally, so a failed sync costs nothing. */
+  syncSoon();
   cacheResult(result);
   emit(state.ctx, 'profile:changed', profile);
   emit(state.ctx, 'assessment:complete', result);

@@ -12,6 +12,7 @@ import * as homeScreen from './ui/screens/home.js';
 import * as testScreen from './ui/screens/test.js';
 import * as resultScreen from './ui/screens/result.js';
 import * as eliminatedScreen from './ui/screens/eliminated.js';
+import { syncAvailable, isLinked, syncNow } from './core/sync.js';
 import * as trainScreen from './ui/screens/train.js';
 import * as drillScreen from './ui/screens/drill.js';
 import * as progressScreen from './ui/screens/progress.js';
@@ -309,6 +310,29 @@ function bootError(outlet) {
   outlet.appendChild(panel);
 }
 
+
+/**
+ * One pull on boot, so a second device sees work done on the first without waiting
+ * for its owner to finish a drill. Best-effort by design: on any failure the local
+ * profile is left exactly as it was, and the app carries on offline.
+ */
+function bootSync() {
+  if (!syncAvailable() || !isLinked()) return;
+  syncNow({ profile })
+    .then((res) => {
+      if (!res || !res.ok || !res.profile) return;
+      /* Adopt the merged copy into the module's own reference. persist() flushes
+         this object on pagehide, so leaving it stale would overwrite the merge. */
+      profile = res.profile;
+      applySettings(profile);
+      enforceGate();
+      if (bus && typeof bus.emit === 'function') {
+        try { bus.emit('profile:changed', { source: 'sync' }); } catch (err) { /* non-fatal */ }
+      }
+    })
+    .catch(() => { /* offline is a normal state, not an error */ });
+}
+
 function boot() {
   const outlet = document.getElementById('app');
   if (!outlet) {
@@ -352,6 +376,7 @@ function boot() {
 
   wireBus();
   router.start();
+  bootSync();
 
   window.addEventListener('pagehide', persist);
   window.addEventListener('visibilitychange', () => {

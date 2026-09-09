@@ -7,6 +7,8 @@ import { mountSvg, button } from '../components.js';
 import { icon } from '../icons.js';
 import { t, labelsEnabled, LANGS, setLang, getLang } from '../i18n.js';
 import { go as routerGo } from '../router.js';
+import { syncCard } from '../syncCard.js';
+import { isLinked } from '../../core/sync.js';
 import {
   saveProfile, exportProfile, importProfile, resetProfile, loadProfile, defaultProfile
 } from '../../core/store.js';
@@ -78,6 +80,7 @@ export function render(ctx) {
 
   root.appendChild(languageCard(ctx, profile));
   root.appendChild(displayCard(ctx, profile));
+  root.appendChild(syncCard(ctx, profile, status));
   root.appendChild(dataCard(ctx, profile, status));
   root.appendChild(status);
   root.appendChild(footerRow(ctx));
@@ -305,9 +308,14 @@ function dataCard(ctx, profile, status) {
   card.appendChild(fileInput);
   card.appendChild(h('p', {
     style: 'margin:0;font-size:13px;line-height:1.55;color:var(--fg-mute,#7b7d88)',
+    /* Kept truthful against the sync card above: "device only" stops being
+       accurate the moment a sync code is linked. */
     text: tx('settings.dataNote',
-      'Everything is stored on this device only. Export writes a single JSON file; ' +
-      'importing one replaces what is here.')
+      isLinked()
+        ? 'Your profile is stored on this device and on the sync server for your ' +
+          'code. Export writes a single JSON file; importing one replaces what is here.'
+        : 'Everything is stored on this device only. Export writes a single JSON file; ' +
+          'importing one replaces what is here.')
   }));
 
   const dangerRow = h('div', { style: ROW_STYLE });

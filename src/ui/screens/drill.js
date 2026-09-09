@@ -14,6 +14,7 @@ import { createDrillSession } from '../../train/session.js';
 import { drillById } from '../../train/drills/index.js';
 import { makeRng } from '../../core/rng.js';
 import { saveProfile } from '../../core/store.js';
+import { syncSoon } from '../../core/sync.js';
 
 const FACTOR_COLORS = {
   induction: '#0072B2',
@@ -1061,6 +1062,8 @@ function finishUp() {
   }
   writeOutcome(s.profile, s.level, outcome);
   try { saveProfile(s.profile); } catch (err) { /* store handles its own fallback */ }
+  /* Same as the assessment: local save already happened, so this is best-effort. */
+  syncSoon();
   emit(s.ctx, 'profile:changed', s.profile);
   emit(s.ctx, 'drill:complete', outcome);
   renderSummary(outcome);

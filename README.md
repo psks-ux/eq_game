@@ -104,8 +104,27 @@ every URL resolves to `index.html` without server configuration. Module filename
 content-hashed, so `vercel.json` sends `must-revalidate` rather than a long max-age -- a
 stale cached module against a fresh `index.html` would break the app.
 
-The app keeps profiles in `localStorage`, so a deployment stores nothing server-side and
-there is no backend to provision.
+### Cross-device profiles
+
+Sync is optional and off until someone links a device. To enable it, set one
+environment variable in the hosting project:
+
+| variable | value |
+|---|---|
+| `DATABASE_URL` | a Postgres connection string (`?sslmode=require`) |
+
+Then create the table once (`docs/SYNC.md` has the DDL). Without `DATABASE_URL` the
+sync endpoint returns 503 and the app runs local-only -- deploying with no database is
+a supported configuration, not a broken one.
+
+Identity is a 20-character sync code shown on one device and typed into another. No
+email, no password, no personal data; the server stores only `sha256(code)`. Profiles
+that diverge offline are reconciled by a merge that is idempotent, commutative and
+associative, so no device can erase another's training. The reasoning per field, and
+the trade-offs, are in `docs/SYNC.md`.
+
+`api/` talks to Postgres over Neon's HTTP endpoint with plain `fetch`, so the project
+keeps its no-dependency property on the server as well as in the browser.
 
 ---
 
@@ -127,8 +146,9 @@ tools/serve.mjs       zero-dependency dev server
 tools/build-static.mjs assembles the deployable dist/
 tools/build-single.mjs single-file bundler
 tools/audit-culture.mjs standalone culture-fairness auditor
+api/                  serverless sync endpoint (zero dependencies)
 docs/                 CONTRACTS.md (authoritative), PSYCHOMETRICS, CULTURE_FAIRNESS,
-                      ARCHITECTURE
+                      ARCHITECTURE, SYNC
 ```
 
 [`docs/CONTRACTS.md`](docs/CONTRACTS.md) is the single source of truth for every

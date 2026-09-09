@@ -50,11 +50,13 @@ has no dependencies and no build step** — the browser loads the ES modules dir
 node tools/serve.mjs        # then open http://localhost:5173
 npm test                    # node --test test/
 npm run sim                 # the psychometric simulation; exits non-zero on failure
-npm run build               # -> dist/eq-game.html, one self-contained file
+npm run build               # -> dist/, the deployable static site
+npm run preview             # serve the built dist/ on http://localhost:5173
+npm run build:single        # -> dist/eq-game.html, one self-contained file
 ```
 
-`npm run serve`, `npm test`, `npm run sim` and `npm run build` are the same four commands
-through `package.json`.
+These run through `package.json`, so `npm run serve`, `npm test`, `npm run sim` and
+`npm run build` all work from a clone with nothing installed.
 
 A few extras:
 
@@ -67,6 +69,7 @@ node --test "test/irt.test.js"       # a single suite
 node tools/audit-culture.mjs 800     # standalone culture-fairness audit
 node tools/serve.mjs --port 8080     # if 5173 is taken
 node tools/build-single.mjs --verbose  # bundle, listing every module by size
+node tools/build-static.mjs            # assemble dist/ without npm
 ```
 
 A full `npm run sim` takes a few minutes: the mock-item passes are fast, but the
@@ -74,9 +77,35 @@ real-registry pass generates every item for 300 simulated examinees and that is
 genuinely slow. Use `--fast` in a tight loop and the full run before you believe a
 change to `irt.js`, `cat.js` or `calibration.js` was safe.
 
-`npm run build` produces a single HTML file with the modules carried in an import map of
-`data:` URLs and the CSS inlined. It runs from a filesystem with no server: open
-`dist/eq-game.html` directly.
+`npm run build` assembles `dist/`: `index.html`, the `src/` tree, and `standalone.html`.
+Tests, docs, the simulation and the tooling are deliberately left out of the published
+output. There is no compilation step -- the files are copied, because the browser loads
+the ES modules as they are written.
+
+`npm run build:single` (and the `standalone.html` the normal build emits) produces one
+self-contained HTML file, with the modules carried in an import map of `data:` URLs and
+the CSS inlined. It runs straight from a filesystem with no server -- open the file.
+
+## Deploying
+
+The site is static, so any static host works. For Vercel, `vercel.json` already sets the
+build command, the output directory and the response headers; importing the repository is
+enough, and the defaults it picks up are:
+
+| setting | value |
+|---|---|
+| Framework preset | Other |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Install command | none (there are no dependencies) |
+
+Routing needs no rewrite rules: the app uses hash routes (`#/test`, `#/train/L01`), so
+every URL resolves to `index.html` without server configuration. Module filenames are not
+content-hashed, so `vercel.json` sends `must-revalidate` rather than a long max-age -- a
+stale cached module against a fresh `index.html` would break the app.
+
+The app keeps profiles in `localStorage`, so a deployment stores nothing server-side and
+there is no backend to provision.
 
 ---
 
@@ -95,6 +124,7 @@ src/styles/           CSS custom properties, dark-first with a light override
 test/                 node:test suites, one per core module plus items and curriculum
 sim/simulate.js       theta recovery, information, elite separation, exposure, cut accuracy
 tools/serve.mjs       zero-dependency dev server
+tools/build-static.mjs assembles the deployable dist/
 tools/build-single.mjs single-file bundler
 tools/audit-culture.mjs standalone culture-fairness auditor
 docs/                 CONTRACTS.md (authoritative), PSYCHOMETRICS, CULTURE_FAIRNESS,

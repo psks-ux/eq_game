@@ -8,6 +8,10 @@ import { icon } from '../icons.js';
 import { t, labelsEnabled, LANGS, setLang, getLang } from '../i18n.js';
 import { go as routerGo } from '../router.js';
 import { syncCard } from '../syncCard.js';
+import { resetSigninPrompt } from '../signinPrompt.js';
+import {
+  authAvailable, loadSession, session, authConfigured, signOut, onAuthChange
+} from '../../core/auth.js';
 import { isLinked } from '../../core/sync.js';
 import {
   saveProfile, exportProfile, importProfile, resetProfile, loadProfile, defaultProfile
@@ -25,7 +29,20 @@ const CARD_STYLE =
 
 const ROW_STYLE = 'display:flex;flex-wrap:wrap;gap:var(--sp-3,12px);align-items:center';
 
+const NOTE_STYLE = 'margin:0;font-size:13px;color:var(--fg-mute,#7b7d88);line-height:1.55';
+
 const GLYPH = {
+  /* A door with the panel open, and the same door with it shut. Geometry only:
+     no padlock, no arrow, no glyph that reads differently across cultures. */
+  signin: '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">' +
+    '<rect x="4" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" ' +
+    'stroke-width="2"/><circle cx="11" cy="12" r="1.4" fill="currentColor"/>' +
+    '<rect x="16" y="10.6" width="6" height="2.8" rx="1.4" fill="currentColor"/></svg>',
+  signout: '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">' +
+    '<rect x="4" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" ' +
+    'stroke-width="2"/><circle cx="11" cy="12" r="1.4" fill="currentColor"/>' +
+    '<rect x="16" y="10.6" width="6" height="2.8" rx="1.4" fill="currentColor" opacity="0.35"/>' +
+    '<rect x="17.6" y="6" width="2.8" height="12" rx="1.4" fill="currentColor"/></svg>',
   home: '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">' +
     '<rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" ' +
     'stroke-width="2"/><rect x="9" y="9" width="6" height="6" fill="currentColor"/></svg>',
@@ -80,6 +97,7 @@ export function render(ctx) {
 
   root.appendChild(languageCard(ctx, profile));
   root.appendChild(displayCard(ctx, profile));
+  root.appendChild(accountCard(ctx));
   root.appendChild(syncCard(ctx, profile, status));
   root.appendChild(dataCard(ctx, profile, status));
   root.appendChild(status);
@@ -97,6 +115,77 @@ export function destroy() {
 }
 
 /* -------------------------------------------------------------------- cards */
+
+/**
+ * Account state, and the only way back to the sign-in screen once someone is
+ * already signed in. Hidden entirely where there is no backend to sign in to,
+ * because an inert control is worse than no control.
+ */
+function accountCard(ctx) {
+  const box = h('div');
+  let stopped = false;
+
+  const paint = () => {
+    if (stopped) return;
+    box.textContent = '';
+    const state = session();
+    const show = authAvailable() && (!state.loaded || state.signedIn || authConfigured());
+    box.hidden = !show;
+    if (!show) return;
+
+    const card = h('section', { class: 'card', style: CARD_STYLE });
+    card.appendChild(sectionTitle('settings.account', 'Account'));
+
+    if (!state.loaded) {
+      card.appendChild(h('p', { style: NOTE_STYLE, text: 'Checking your session…' }));
+      box.appendChild(card);
+      return;
+    }
+
+    if (state.signedIn) {
+      const who = (state.user && state.user.email) || 'your account';
+      card.appendChild(h('p', {
+        style: NOTE_STYLE,
+        text: `Signed in as ${who}. Your profile syncs to this account automatically.`
+      }));
+      const row = h('div', { style: ROW_STYLE });
+      const out = actionButton({
+        iconKey: 'signout', glyph: GLYPH.signout, labelKey: ['settings.signOut', 'sign out'],
+        fallbackLabel: 'Sign out',
+        onClick: async () => {
+          out.disabled = true;
+          await signOut();
+          /* Offer the prompt again: this device is now anonymous, and that is
+             exactly the state the prompt exists for. */
+          resetSigninPrompt();
+          out.disabled = false;
+        }
+      });
+      row.appendChild(out);
+      card.appendChild(row);
+    } else {
+      card.appendChild(h('p', {
+        style: NOTE_STYLE,
+        text: 'Not signed in. An account keeps your measurement and training levels '
+          + 'across devices. Everything works without one.'
+      }));
+      const row = h('div', { style: ROW_STYLE });
+      row.appendChild(actionButton({
+        iconKey: 'signin', glyph: GLYPH.signin, labelKey: ['settings.signIn', 'sign in'],
+        fallbackLabel: 'Sign in',
+        onClick: () => navigate(ctx, '#/signin?next=%23/settings')
+      }));
+      card.appendChild(row);
+    }
+    box.appendChild(card);
+  };
+
+  paint();
+  loadSession().catch(() => {});
+  const off = onAuthChange(paint);
+  cleanup.push(() => { stopped = true; off(); });
+  return box;
+}
 
 function languageCard(ctx, profile) {
   const card = h('section', { style: CARD_STYLE });

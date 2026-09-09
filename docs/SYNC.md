@@ -4,6 +4,11 @@ The app keeps a profile in `localStorage` and works entirely offline. Sync is an
 optional layer on top: linking a device never becomes a requirement, and nothing
 about the assessment or the training changes when it is switched off.
 
+Two identities can carry a profile, and a device may use either. This document
+covers the **sync code**; `docs/AUTH.md` covers signing in with an email address
+or with Google. When a device has both, the account wins — the server prefers a
+session over a code, and the settings screen says so.
+
 ## Identity: a sync code, not an account
 
 A sync code is 20 characters drawn from a 31-symbol alphabet with the look-alikes
@@ -14,21 +19,27 @@ removed (`O/0`, `I/1/L` never appear), displayed in groups of four:
 That is roughly 99 bits of entropy from `crypto.getRandomValues`, mapped without
 modulo bias — bytes that would skew the alphabet are resampled rather than folded in.
 
-The code **is** the identity. There is no email, no password, no OAuth provider and
-no personal data anywhere in the system. This was chosen deliberately:
+For a code-linked device the code **is** the identity: no email, no password, no
+OAuth provider, no personal data. This path was built first and deliberately:
 
 - The product claim is that a person from any country starts equal. A login form is
   the one screen that cannot be made language-neutral, and an email field is the one
-  place the app would start collecting personal data.
+  place the app would start collecting personal data. A code needs neither.
 - The server stores only `sha256(code)`. A database leak yields hashes, not codes,
   and therefore no access to any profile.
 - The code travels in an `x-sync-code` header, never in a URL. Query strings end up
   in server logs, proxy logs and browser history.
 
+Accounts were added alongside it rather than in place of it, because the one thing a
+code cannot do is survive being forgotten — see the trade-off below, then `docs/AUTH.md`
+for what an account costs in exchange.
+
 **The trade-off, stated plainly:** lose the code and you lose the ability to reach
 that profile from a new device — there is no recovery flow, because a recovery flow
 requires an identity we deliberately do not collect. Anyone who has the code has the
-profile. The UI says exactly this next to the code.
+profile. The UI says exactly this next to the code. Anyone who would rather trade an
+email address for a way back in can sign in instead; that choice is theirs, and both
+paths stay available.
 
 ## The merge
 
@@ -68,6 +79,10 @@ device, re-tested later and fell below 100, the newer result stands after a merg
 either direction. A stale qualified record with a newer wall clock does not resurrect
 access — there is a test for exactly that case.
 
+The merge is shared: an account-backed profile is reconciled by exactly the same
+`mergeProfiles`, against `user_profiles` instead of `profiles`. Signing in therefore
+merges a guest's existing work into the account rather than replacing it.
+
 ## Where the merge runs
 
 Both sides, and that is intentional:
@@ -104,11 +119,17 @@ create table profiles (
 create index profiles_updated_at_idx on profiles (updated_at desc);
 ```
 
+Account-backed profiles live in `user_profiles`, same shape, keyed by user id.
+`docs/AUTH.md` has that DDL alongside the tables it depends on.
+
 ## Deployment
 
 Set one environment variable in the hosting project:
 
     DATABASE_URL = postgresql://<user>:<password>@<host>/<db>?sslmode=require
+
+That is all a sync code needs. Accounts need `SESSION_SECRET` as well, and Google
+sign-in needs two more variables again; `docs/AUTH.md` lists them.
 
 `api/_db.js` talks to Neon over its HTTP SQL endpoint with plain `fetch`, so the
 project keeps its no-dependency property on the server as well as the client. Without
@@ -117,6 +138,7 @@ deploying without a database is a supported configuration, not a broken one.
 
 ## What this is not
 
-There is no account recovery, no server-side history, no admin view, and no analytics.
-The server holds one JSON document per code hash and nothing else. If a profile needs
-to move without sync, Settings → Export still writes a single JSON file.
+There is no recovery for a lost **code**, no server-side history, no admin view, and no
+analytics. On this path the server holds one JSON document per code hash and nothing
+else. If a profile needs to move without sync at all, Settings → Export still writes a
+single JSON file.

@@ -11,6 +11,7 @@ import {
   syncAvailable, isLinked, getCode, lastSyncAt, createLink, linkTo, unlink,
   syncNow, formatCode, normaliseCode
 } from '../core/sync.js';
+import { isSignedIn } from '../core/auth.js';
 
 const CARD_STYLE =
   'background:var(--bg-elev,#16171c);border:1px solid var(--line,#2a2c34);' +
@@ -55,11 +56,30 @@ function h(tag, attrs, kids) {
 }
 
 /**
+ * A signed-in device syncs through its account; the server prefers a session over
+ * a code, so a code held at the same time simply goes unused. Saying so beats
+ * leaving someone to wonder which of the two is actually carrying their profile.
+ */
+function appendIf(parent, node) {
+  if (node) parent.appendChild(node);
+}
+
+function accountNote() {
+  if (!isSignedIn()) return null;
+  return h('p', {
+    style: NOTE_STYLE,
+    text: 'You are signed in, so your profile already syncs to your account. ' +
+      'A code is an alternative to that, not an addition — while you are signed in, ' +
+      'the account is used.'
+  });
+}
+
+/**
  * Replace the contents of the live profile object rather than swapping the
  * reference. main.js holds this same object and flushes it on pagehide, so
  * handing it a new object would let the stale one overwrite the merged profile.
  */
-function adoptInto(target, merged) {
+export function adoptInto(target, merged) {
   if (!target || !merged) return;
   for (const key of Object.keys(target)) {
     if (!Object.prototype.hasOwnProperty.call(merged, key)) delete target[key];
@@ -133,6 +153,8 @@ export function syncCard(ctx, profile, status) {
         'device, or enter a code you already have. No email, no password, no personal data.'
     }));
 
+    appendIf(body, accountNote());
+
     const actions = h('div', { style: ROW_STYLE });
 
     actions.appendChild(button({
@@ -181,6 +203,8 @@ export function syncCard(ctx, profile, status) {
       text: 'Enter this code on another device to share one profile. Anyone with the ' +
         'code can open your profile, so treat it like a key.'
     }));
+
+    appendIf(body, accountNote());
 
     const codeBox = h('div', { style: CODE_STYLE, text: formatCode(code) });
     codeBox.setAttribute('role', 'textbox');

@@ -609,3 +609,62 @@ src="./src/main.js">`, links the stylesheet, sets `<meta name="viewport">` and
 the gate — a profile with `status: 'eliminated'` may only reach `#/eliminated` and
 `#/about`; a profile with `status: 'new'` is redirected to `#/` and cannot reach
 `#/train`.
+
+## 26. `src/core/merge.js` and `src/core/sync.js` — cross-device profiles
+
+`mergeProfiles(a, b) -> profile` is a **join-semilattice**: idempotent, commutative and
+associative. Those three properties are what make a repeating sync loop converge instead
+of oscillating, and they are asserted as property tests in `test/merge.test.js`, not
+assumed. Counters take `max`, never `sum` — summing is not idempotent. `status` and
+`currentIndex` are *derived* from the newest assessment in the merged history, never
+copied, so elimination cannot be escaped by merging. Per-field rules: `docs/SYNC.md`.
+
+`src/core/sync.js` owns the client half. Local storage stays the source of truth and every
+read and write in the app remains synchronous and offline; this module only pushes and
+pulls in the background.
+
+- `syncAvailable()` — false on `file://` and in the standalone build, so everything
+  downstream becomes a no-op rather than an error.
+- `syncEligible()` — `syncAvailable()` and (signed in **or** code-linked).
+- `generateCode()` — 20 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no `O/0`,
+  no `I/1/L`) via `crypto.getRandomValues`, with modulo bias removed by resampling.
+  Never `Math.random` for a credential.
+- `syncNow({ profile })` — resolves `{ ok, profile, reason }` and **never throws**.
+- The code travels in an `x-sync-code` header, never a URL.
+
+## 27. Authentication — `api/_auth.js`, `api/auth/*`, `src/core/auth.js`
+
+Sign-in is **recommended, never required**. Nothing about the assessment or the training
+changes for a guest, and no route is gated on it. Full design and reasoning: `docs/AUTH.md`.
+
+Server (`api/_auth.js`, zero dependencies, `node:crypto` only):
+
+- `hashPassword` / `verifyPassword` — scrypt `N=16384, r=8, p=1`, 64-byte key, 16-byte
+  salt, parameters recorded in the stored string, compared with `timingSafeEqual`. A
+  stored key under 32 bytes is **rejected**, because scrypt's shorter output is a prefix
+  of its longer one and a truncated row would otherwise still verify.
+- `createSession` / `readSession` / `destroySession` — opaque 256-bit tokens stored as
+  `sha256(token)`; the cookie is `HttpOnly; SameSite=Lax` and `Secure` behind https.
+  `Lax`, not `Strict`: the Google callback is a top-level cross-site redirect.
+- `setOAuthState` / `readOAuthState` — HMAC-signed short-lived cookie carrying `state`,
+  the PKCE verifier and `next`. Compared in constant time on the way back.
+- `sessionSecret()` — returns `null` below 32 characters, and every caller fails closed.
+
+Routes: `GET|DELETE /api/auth/session`, `POST /api/auth/password`,
+`GET /api/auth/google` (start **and** callback, so only one redirect URI is registered).
+`GET /api/auth/session` also reports which providers are configured, so the UI never
+offers a button that cannot work.
+
+`api/profile.js` accepts either identity and **prefers a session over a sync code**;
+account profiles live in `user_profiles`, code profiles in `profiles`, same document
+shape and the same `mergeProfiles`.
+
+Client (`src/core/auth.js`): no token ever reaches JavaScript — the session is an
+`HttpOnly` cookie. `authAvailable()` is false off an http(s) origin. `withPassword` and
+`signOut` resolve an outcome object and never throw; a failed sign-in is an ordinary
+result, not an exception. `googleUrl(next)` accepts only same-document hash routes, so
+the flow can never become an open redirector.
+
+Constraint carried over from §1.4: `#/signin` is the **only** screen exempt from the
+labels-off setting, because two unlabelled input boxes are not a fair test of anything.
+Every assessment and training surface stays wordless.

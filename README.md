@@ -106,22 +106,39 @@ stale cached module against a fresh `index.html` would break the app.
 
 ### Cross-device profiles
 
-Sync is optional and off until someone links a device. To enable it, set one
-environment variable in the hosting project:
+A profile can travel two ways, and both are optional. Set only what you want:
 
-| variable | value |
-|---|---|
-| `DATABASE_URL` | a Postgres connection string (`?sslmode=require`) |
+| variable | enables | notes |
+|---|---|---|
+| `DATABASE_URL` | sync codes | Postgres, `?sslmode=require` |
+| `SESSION_SECRET` | email + password sign-in | >= 32 characters; shorter fails closed |
+| `GOOGLE_CLIENT_ID` | Google sign-in | from the Google Cloud console |
+| `GOOGLE_CLIENT_SECRET` | Google sign-in | host env only -- never in the repo |
+| `PUBLIC_ORIGIN` | Google sign-in, optionally | pins the redirect URI when the host varies |
 
-Then create the table once (`docs/SYNC.md` has the DDL). Without `DATABASE_URL` the
-sync endpoint returns 503 and the app runs local-only -- deploying with no database is
-a supported configuration, not a broken one.
+Then create the tables once: `docs/SYNC.md` has the DDL for sync codes, `docs/AUTH.md`
+for accounts. Every variable is independently optional. With none of them the app runs
+local-only, the endpoints return 503 and the sign-in screen says so -- deploying with no
+database is a supported configuration, not a broken one.
 
-Identity is a 20-character sync code shown on one device and typed into another. No
-email, no password, no personal data; the server stores only `sha256(code)`. Profiles
-that diverge offline are reconciled by a merge that is idempotent, commutative and
-associative, so no device can erase another's training. The reasoning per field, and
-the trade-offs, are in `docs/SYNC.md`.
+For Google sign-in, register this redirect URI on the client, exactly:
+
+    https://<your-domain>/api/auth/google
+
+**Sync codes.** A 20-character code shown on one device and typed into another. No
+email, no password, no personal data; the server stores only `sha256(code)`. Lose the
+code and there is no way back -- recovery needs an identity the code path deliberately
+does not collect.
+
+**Accounts.** Email + password (scrypt, `timingSafeEqual`, per-account lockout) or
+Google (authorisation code + PKCE, `openid email` scope only, no name or photograph
+stored). Recommended before playing, never required: the assessment and the training are
+identical for a guest, and signing in *merges* a guest profile rather than replacing it.
+`docs/AUTH.md` has the design and the reasoning.
+
+Profiles that diverge offline are reconciled by a merge that is idempotent, commutative
+and associative, so no device can erase another's training -- the same merge on both
+paths. The reasoning per field is in `docs/SYNC.md`.
 
 `api/` talks to Postgres over Neon's HTTP endpoint with plain `fetch`, so the project
 keeps its no-dependency property on the server as well as in the browser.
@@ -137,7 +154,7 @@ src/main.js           bootstrap and the elimination gate
 src/core/             rng, stats, irt (3PL + WLE), scale, cat, staircase, store, events
 src/items/            shapes, svg, rules, calibration, registry + 8 item families
 src/train/            curriculum (60+ levels), session scoring, 13 drill engines
-src/ui/               router, components, icons, wordless demos, i18n, 9 screens
+src/ui/               router, components, icons, wordless demos, i18n, 10 screens
 src/styles/           CSS custom properties, dark-first with a light override
 
 test/                 node:test suites, one per core module plus items and curriculum
@@ -146,9 +163,10 @@ tools/serve.mjs       zero-dependency dev server
 tools/build-static.mjs assembles the deployable dist/
 tools/build-single.mjs single-file bundler
 tools/audit-culture.mjs standalone culture-fairness auditor
-api/                  serverless sync endpoint (zero dependencies)
+api/                  serverless endpoints (zero dependencies): profile sync,
+                      password + Google sign-in, sessions
 docs/                 CONTRACTS.md (authoritative), PSYCHOMETRICS, CULTURE_FAIRNESS,
-                      ARCHITECTURE, SYNC
+                      ARCHITECTURE, SYNC, AUTH
 ```
 
 [`docs/CONTRACTS.md`](docs/CONTRACTS.md) is the single source of truth for every

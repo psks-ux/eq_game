@@ -8,6 +8,7 @@
 
 import { mergeProfiles } from './merge.js';
 import { loadProfile, saveProfile } from './store.js';
+import { isSignedIn } from './auth.js';
 
 const SYNC_KEY = 'eqgame.sync.v1';
 const ENDPOINT = '/api/profile';
@@ -102,6 +103,14 @@ export function isLinked() {
   return !!readState().code;
 }
 
+/**
+ * Sync runs for either identity: a signed-in account, or a sync code, or both.
+ * Signing in gives a device somewhere to sync to without it ever seeing a code.
+ */
+export function syncEligible() {
+  return syncAvailable() && (isSignedIn() || isLinked());
+}
+
 export function getCode() {
   return readState().code;
 }
@@ -134,17 +143,19 @@ export function linkTo(raw) {
 async function request(method, code, body) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const headers = { 'Content-Type': 'application/json' };
+  /* Header, not query string: a URL would put the credential into server logs,
+     proxy logs and browser history. Omitted entirely when signed in, so the
+     server falls through to the session cookie. */
+  if (code) headers['x-sync-code'] = code;
   try {
     const res = await fetch(ENDPOINT, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        /* Header, not query string: a URL would put the credential into server
-           logs, proxy logs and browser history. */
-        'x-sync-code': code
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
+      /* The session cookie must ride along for account-backed sync. */
+      credentials: 'same-origin',
       cache: 'no-store'
     });
     const payload = await res.json().catch(() => ({}));
@@ -170,7 +181,8 @@ export function syncNow(options) {
   inFlight = (async () => {
     if (!syncAvailable()) return { ok: false, reason: 'unavailable' };
     const state = readState();
-    if (!state.code) return { ok: false, reason: 'not_linked' };
+    /* A signed-in device needs no code: the session cookie identifies it. */
+    if (!state.code && !isSignedIn()) return { ok: false, reason: 'not_linked' };
 
     const local = opts.profile || loadProfile();
     try {
@@ -179,7 +191,8 @@ export function syncNow(options) {
       if (!ok) {
         const reason = status === 503 ? 'unconfigured'
           : status === 413 ? 'too_large'
-            : status === 400 ? 'bad_code' : 'server_error';
+            : status === 401 ? 'not_linked'
+              : status === 400 ? 'bad_code' : 'server_error';
         writeState({ ...state, lastError: reason });
         return { ok: false, reason, status };
       }
@@ -233,6 +246,6 @@ export async function peek(raw) {
  * is already saved and the next sync will carry it.
  */
 export function syncSoon() {
-  if (!syncAvailable() || !isLinked()) return;
+  if (!syncEligible()) return;
   Promise.resolve().then(() => syncNow()).catch(() => {});
 }

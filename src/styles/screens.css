@@ -730,3 +730,37 @@ textarea {
     min-height: 0 !important;
   }
 }
+
+/* ------------------------------------------------------------------ sign-in */
+
+/* Sign-in is the one screen that cannot be wordless: an email field and a
+   password field have to say which is which. It opts out of the labels-off rule
+   in base.css rather than presenting two anonymous boxes. Assessment and
+   training screens are unaffected and stay language-free. */
+body.labels-off .screen-signin .label-text {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+}
+
+body.labels-off .screen-signin .btn__label.label-text {
+  display: inline;
+}
+
+.screen-signin input {
+  color-scheme: inherit;
+}
+
+.screen-signin input:focus-visible,
+.screen-signin button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.screen-signin input::placeholder {
+  color: var(--fg-mute);
+}

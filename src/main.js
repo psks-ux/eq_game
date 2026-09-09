@@ -12,12 +12,14 @@ import * as homeScreen from './ui/screens/home.js';
 import * as testScreen from './ui/screens/test.js';
 import * as resultScreen from './ui/screens/result.js';
 import * as eliminatedScreen from './ui/screens/eliminated.js';
-import { syncAvailable, isLinked, syncNow } from './core/sync.js';
+import { syncAvailable, syncEligible, syncNow } from './core/sync.js';
+import { authAvailable, loadSession, consumeRedirectResult } from './core/auth.js';
 import * as trainScreen from './ui/screens/train.js';
 import * as drillScreen from './ui/screens/drill.js';
 import * as progressScreen from './ui/screens/progress.js';
 import * as settingsScreen from './ui/screens/settings.js';
 import * as aboutScreen from './ui/screens/about.js';
+import * as signinScreen from './ui/screens/signin.js';
 
 const ROUTES = {
   '/': homeScreen,
@@ -29,11 +31,14 @@ const ROUTES = {
   '/progress': progressScreen,
   '/settings': settingsScreen,
   '/about': aboutScreen,
+  '/signin': signinScreen,
 };
 
 /* Routes an eliminated candidate may still reach. The elimination is a hard
    product rule: everything else redirects to the elimination screen. */
-const ELIMINATED_ALLOW = new Set(['/eliminated', '/about']);
+/* Signing in is still allowed after elimination: an account is how someone keeps
+   or moves the record of that measurement, and withholding it would be spite. */
+const ELIMINATED_ALLOW = new Set(['/eliminated', '/about', '/signin']);
 
 /* Routes a candidate who has not been measured yet may not reach. */
 const TRAINING_ROUTES = new Set(['/train', '/train/:levelId']);
@@ -317,8 +322,17 @@ function bootError(outlet) {
  * profile is left exactly as it was, and the app carries on offline.
  */
 function bootSync() {
-  if (!syncAvailable() || !isLinked()) return;
-  syncNow({ profile })
+  if (!syncAvailable()) return;
+
+  /* The Google callback lands on `/?auth=in#/...`. Consume that marker first so a
+     refresh or a shared link cannot replay a stale outcome, then let the session
+     load decide whether there is an account to sync with at all. */
+  const redirect = authAvailable() ? consumeRedirectResult() : null;
+  const ready = authAvailable() ? loadSession(true) : Promise.resolve(null);
+
+  ready
+    .catch(() => null)
+    .then(() => (syncEligible() ? syncNow({ profile }) : null))
     .then((res) => {
       if (!res || !res.ok || !res.profile) return;
       /* Adopt the merged copy into the module's own reference. persist() flushes
@@ -331,6 +345,12 @@ function bootSync() {
       }
     })
     .catch(() => { /* offline is a normal state, not an error */ });
+
+  if (redirect && redirect !== 'in' && bus && typeof bus.emit === 'function') {
+    /* 'cancelled', 'expired', 'state' or 'failed': tell anything listening, but
+       never block the app -- the person is simply still signed out. */
+    try { bus.emit('auth:redirect', { result: redirect }); } catch (err) { /* non-fatal */ }
+  }
 }
 
 function boot() {

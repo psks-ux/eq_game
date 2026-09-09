@@ -5,6 +5,7 @@
  */
 
 import { mountSvg, button, bell } from '../components.js';
+import { signinPrompt } from '../signinPrompt.js';
 import { icon } from '../icons.js';
 import { demoFor } from '../demos.js';
 import { t, labelsEnabled } from '../i18n.js';
@@ -74,6 +75,12 @@ export function render(ctx) {
     navigate(ctx, '#/eliminated');
     return root;
   }
+
+  /* Recommended, never required: the prompt hides itself when there is nothing
+     to sign in to, when someone already has, or once it has been dismissed. */
+  const prompt = signinPrompt(ctx, { tone: status === 'new' ? 'first' : 'later' });
+  root.appendChild(prompt.el);
+  cleanup.push(prompt.stop);
 
   if (status === 'qualified') root.appendChild(qualifiedView(ctx, profile));
   else root.appendChild(newView(ctx, profile));

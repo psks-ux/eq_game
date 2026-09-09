@@ -1,21 +1,34 @@
 /**
- * Cross-device profile sync, keyed by a sync code and nothing else.
+ * Cross-device profile sync.
  *
- * GET  -> return the stored profile for a code, or 404.
- * POST -> merge the caller's profile into the stored one and return the result.
+ *   GET  -> return the stored profile for this identity, or 404.
+ *   POST -> merge the caller's profile into the stored one and return the result.
  *
- * The server holds only sha256(code), so a database leak yields no usable codes.
- * No email, no password, no personal data: the code IS the identity.
+ * Two identities are accepted, and a signed-in account always wins over a sync
+ * code so that signing in on a device that already had a code does the obvious
+ * thing:
+ *
+ *   1. A session cookie  -> the profile belongs to a user account.
+ *   2. An `x-sync-code`  -> the anonymous, account-free path that came first.
+ *      The server holds only sha256(code), so a leak yields no usable codes.
  */
 
 import { createHash } from 'node:crypto';
 import { query, databaseConfigured } from './_db.js';
+import { readSession, sessionSecret } from './_auth.js';
 import { mergeProfiles } from '../src/core/merge.js';
 
-/* Codes are 20 chars from a 32-symbol alphabet with look-alikes removed. */
+/* Codes are 20 chars from a 31-symbol alphabet with look-alikes removed. */
 const CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{20}$/;
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_WRITE_RETRIES = 4;
+
+/* Both identities store the same document in the same shape; only the table and
+   the key column differ. Held as literals, never built from request data. */
+const STORES = {
+  user: { table: 'user_profiles', key: 'user_id', castKey: '$1::uuid' },
+  code: { table: 'profiles', key: 'code_hash', castKey: '$1' }
+};
 
 function normaliseCode(raw) {
   if (typeof raw !== 'string') return null;
@@ -59,10 +72,29 @@ function asProfile(value) {
   return null;
 }
 
-async function loadRow(codeHash) {
+/** Which identity is this request using? A session beats a sync code. */
+async function identify(req) {
+  if (sessionSecret()) {
+    try {
+      const session = await readSession(req);
+      if (session) return { kind: 'user', key: session.userId, email: session.email };
+    } catch (err) {
+      /* A database hiccup during session lookup should not silently downgrade
+         someone to their old anonymous profile, so fail rather than fall back. */
+      throw err;
+    }
+  }
+  const code = readCode(req);
+  if (code) return { kind: 'code', key: hashCode(code) };
+  return null;
+}
+
+async function loadRow(who) {
+  const store = STORES[who.kind];
   const rows = await query(
-    'select profile, rev, extract(epoch from updated_at) * 1000 as updated_ms from profiles where code_hash = $1',
-    [codeHash]
+    `select profile, rev, extract(epoch from updated_at) * 1000 as updated_ms
+       from ${store.table} where ${store.key} = ${store.castKey}`,
+    [who.key]
   );
   if (!rows.length) return null;
   const row = rows[0];
@@ -71,20 +103,51 @@ async function loadRow(codeHash) {
   return { profile, rev: Number(row.rev), updatedMs: Number(row.updated_ms) };
 }
 
+async function insertRow(who, profile) {
+  const store = STORES[who.kind];
+  return query(
+    `insert into ${store.table} (${store.key}, profile, rev)
+     values (${store.castKey}, $2::jsonb, 1)
+     on conflict (${store.key}) do nothing
+     returning rev, extract(epoch from updated_at) * 1000 as updated_ms`,
+    [who.key, JSON.stringify(profile)]
+  );
+}
+
+async function updateRow(who, profile, rev) {
+  const store = STORES[who.kind];
+  return query(
+    `update ${store.table}
+        set profile = $2::jsonb, rev = rev + 1, updated_at = now()
+      where ${store.key} = ${store.castKey} and rev = $3
+  returning rev, extract(epoch from updated_at) * 1000 as updated_ms`,
+    [who.key, JSON.stringify(profile), rev]
+  );
+}
+
 export default async function handler(req, res) {
   if (!databaseConfigured()) {
     return send(res, 503, { error: 'sync_unconfigured' });
   }
 
-  const code = readCode(req);
-  if (!code) return send(res, 400, { error: 'bad_code' });
-  const codeHash = hashCode(code);
+  let who;
+  try {
+    who = await identify(req);
+  } catch (err) {
+    console.error('identity lookup failed:', err && err.message, err && err.detail);
+    return send(res, 500, { error: 'sync_failed' });
+  }
+  if (!who) return send(res, 401, { error: 'no_identity' });
+
+  const identity = { via: who.kind === 'user' ? 'account' : 'code' };
 
   try {
     if (req.method === 'GET') {
-      const row = await loadRow(codeHash);
-      if (!row) return send(res, 404, { error: 'not_found' });
-      return send(res, 200, { profile: row.profile, rev: row.rev, updatedAt: row.updatedMs });
+      const row = await loadRow(who);
+      if (!row) return send(res, 404, { error: 'not_found', ...identity });
+      return send(res, 200, {
+        profile: row.profile, rev: row.rev, updatedAt: row.updatedMs, ...identity
+      });
     }
 
     if (req.method === 'POST') {
@@ -100,40 +163,30 @@ export default async function handler(req, res) {
          between our read and our write. The merge is associative, so replaying it
          against the newer row is always safe. */
       for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt++) {
-        const row = await loadRow(codeHash);
+        const row = await loadRow(who);
 
         if (!row) {
-          const inserted = await query(
-            `insert into profiles (code_hash, profile, rev)
-             values ($1, $2::jsonb, 1)
-             on conflict (code_hash) do nothing
-             returning rev, extract(epoch from updated_at) * 1000 as updated_ms`,
-            [codeHash, JSON.stringify(incoming)]
-          );
+          const inserted = await insertRow(who, incoming);
           if (!inserted.length) continue; // someone inserted first; re-read and merge
           return send(res, 200, {
             profile: incoming,
             rev: Number(inserted[0].rev),
             updatedAt: Number(inserted[0].updated_ms),
-            merged: false
+            merged: false,
+            ...identity
           });
         }
 
         const merged = mergeProfiles(incoming, row.profile);
-        const updated = await query(
-          `update profiles
-              set profile = $2::jsonb, rev = rev + 1, updated_at = now()
-            where code_hash = $1 and rev = $3
-        returning rev, extract(epoch from updated_at) * 1000 as updated_ms`,
-          [codeHash, JSON.stringify(merged), row.rev]
-        );
+        const updated = await updateRow(who, merged, row.rev);
         if (!updated.length) continue; // lost the race; merge again against the new row
 
         return send(res, 200, {
           profile: merged,
           rev: Number(updated[0].rev),
           updatedAt: Number(updated[0].updated_ms),
-          merged: true
+          merged: true,
+          ...identity
         });
       }
 
